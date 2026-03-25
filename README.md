@@ -1,4 +1,3 @@
 # Cangkang
 
-with ssg named cangkang
-Simple and Minimal to used for my blogs things later write in rust with zero external dependencies.
+A simple and minimal SSG, written in Rust with zero dependencies.
