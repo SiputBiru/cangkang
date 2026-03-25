@@ -86,7 +86,7 @@ mod tests {
             blocks: vec![
                 Block::Heading {
                     level: 2,
-                    content: vec![Inline::Text("Cangkang Engine".to_string())],
+                    content: vec![Inline::Text("Cangkang".to_string())],
                 },
                 Block::Paragraph(vec![
                     Inline::Text("Building an SSG in ".to_string()),
