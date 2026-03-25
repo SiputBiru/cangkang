@@ -60,7 +60,9 @@ fn build_index(pages: &[PageInfo], dist_dir: &Path, template: &str) -> Result<()
     }
     index_content.push_str("</ul>\n");
 
-    let final_index_html = template.replace("{{ content }}", &index_content);
+    let final_index_html = template
+        .replace("{{ content }}", &index_content)
+        .replace("{{ body_class }}", "is-home");
     let index_path = dist_dir.join("index.html");
 
     fs::write_html_file(&index_path, &final_index_html)?;
@@ -120,7 +122,9 @@ fn compile_file(
 
     let title = extract_title(&document);
     let html_output = crate::html::generate_html(&document);
-    let final_html = template.replace("{{ content }}", &html_output);
+    let final_html = template
+        .replace("{{ content }}", &html_output)
+        .replace("{{ body_class }}", "is-post");
 
     let relative_path = input_path.strip_prefix(base_content_dir).unwrap();
     let mut output_path = base_dist_dir.join(relative_path);

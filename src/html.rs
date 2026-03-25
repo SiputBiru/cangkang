@@ -82,8 +82,8 @@ fn render_inline(inline: &Inline, footnotes: &HashMap<String, String>) -> String
                 .cloned()
                 .unwrap_or_else(|| "Missing footnote".to_string());
             format!(
-                r#"<label for="sn-{}" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-{}" class="margin-toggle"/><span class="sidenote">{}</span>"#,
-                id, id, content
+                r#"<label for="sn-{}" class="sidenote-number">[{}]</label><input type="checkbox" id="sn-{}" class="margin-toggle"/><span class="sidenote">{}</span>"#,
+                id, id, id, content
             )
         }
     }
@@ -157,7 +157,7 @@ mod tests {
 
         // We expect the paragraph to contain the label/input/span hack,
         // and the definition block to be completely missing from the end.
-        let expected_html = "<p>Cangkang is fast<label for=\"sn-1\" class=\"margin-toggle sidenote-number\"></label><input type=\"checkbox\" id=\"sn-1\" class=\"margin-toggle\"/><span class=\"sidenote\"> Written in Rust.</span>.</p>\n";
+        let expected_html = "<p>Cangkang is fast<label for=\"sn-1\" class=\"margin-toggle sidenote-number\">[1]</label><input type=\"checkbox\" id=\"sn-1\" class=\"margin-toggle\"/><span class=\"sidenote\"> Written in Rust.</span>.</p>\n";
 
         assert_eq!(generated, expected_html);
     }
