@@ -41,7 +41,7 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
         Block::Paragraph(content) => {
             format!("<p>{}</p>", render_inlines(content, footnotes))
         }
-        Block::CodeBlock { language, code } => {
+        Block::Code { language, code } => {
             let escaped_code = escape_html(code);
             if language.is_empty() {
                 format!("<pre><code>{}</code></pre>", escaped_code)
@@ -52,7 +52,54 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
                 )
             }
         }
+        Block::List(items) => {
+            let mut html = String::from("<ul>\n");
+            for (indent, item) in items {
+                // If indent is 4, margin is 1.5rem. If 8, margin is 3.0rem!
+                let margin = (indent / 4) as f32 * 1.5;
+                html.push_str(&format!(
+                    "  <li style=\"margin-left: {}rem;\">{}</li>\n",
+                    margin,
+                    render_inlines(item, footnotes)
+                ));
+            }
+            html.push_str("</ul>");
+            html
+        }
+        Block::OrderedList(items) => {
+            let mut html = String::from("<ol>\n");
+            for (indent, item) in items {
+                let margin = (indent / 4) as f32 * 1.5;
+                html.push_str(&format!(
+                    "  <li style=\"margin-left: {}rem;\">{}</li>\n",
+                    margin,
+                    render_inlines(item, footnotes)
+                ));
+            }
+            html.push_str("</ol>");
+            html
+        }
+
         Block::FootnoteDef { .. } => String::new(), // Handled above
+
+        Block::Callout { kind, content } => {
+            if kind == "quote" {
+                format!(
+                    "<blockquote>{}</blockquote>",
+                    render_inlines(content, footnotes)
+                )
+            } else {
+                let title = kind.to_uppercase();
+                let icon = if kind == "warn" { "⚠️" } else { "💡" };
+                format!(
+                    "<div class=\"callout callout-{}\">\n  <div class=\"callout-title\">{} {}</div>\n  <p>{}</p>\n</div>",
+                    kind,
+                    icon,
+                    title,
+                    render_inlines(content, footnotes)
+                )
+            }
+        }
     }
 }
 
@@ -71,6 +118,7 @@ fn render_inline(inline: &Inline, footnotes: &HashMap<String, String>) -> String
         Inline::Italic(text) => format!("<em>{}</em>", escape_html(text)),
         Inline::Code(code) => format!("<code>{}</code>", escape_html(code)),
         Inline::Link { text, url } => format!("<a href=\"{}\">{}</a>", url, escape_html(text)),
+        Inline::LineBreak => String::from("<br />"),
         Inline::Image { alt, url } => {
             format!("<img src=\"{}\" alt=\"{}\" />", url, escape_html(alt))
         }
@@ -155,9 +203,7 @@ mod tests {
 
         let generated = generate_html(&doc);
 
-        // We expect the paragraph to contain the label/input/span hack,
-        // and the definition block to be completely missing from the end.
-        let expected_html = "<p>Cangkang is fast<label for=\"sn-1\" class=\"margin-toggle sidenote-number\">[1]</label><input type=\"checkbox\" id=\"sn-1\" class=\"margin-toggle\"/><span class=\"sidenote\"> Written in Rust.</span>.</p>\n";
+        let expected_html = "<p>Cangkang is fast<label for=\"sn-1\" class=\"sidenote-number\">[1]</label><input type=\"checkbox\" id=\"sn-1\" class=\"margin-toggle\"/><span class=\"sidenote\"> Written in Rust.</span>.</p>\n";
 
         assert_eq!(generated, expected_html);
     }

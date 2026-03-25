@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::error::CangkangError;
+use crate::frontmatter;
 use crate::fs;
 use crate::lexer::Lexer;
 use crate::parser::{Block, Document, Inline, Parser};
@@ -9,22 +10,37 @@ use crate::parser::{Block, Document, Inline, Parser};
 pub struct PageInfo {
     pub title: String,
     pub url: String,
+    pub date: String,
 }
 
 pub fn build_site() -> Result<(), CangkangError> {
     println!("Starting Cangkang...");
 
-    let template_path = "templates/base.html";
-    let template = std::fs::read_to_string(template_path).map_err(|e| {
+    let index_template_path = "templates/index_template.html";
+    let index_template = std::fs::read_to_string(index_template_path).map_err(|e| {
         CangkangError::Template(format!(
-            "Could not read template at '{}': {}",
-            template_path, e
+            "Could not read index/home template at '{}': {}",
+            index_template_path, e
         ))
     })?;
-
-    if !template.contains("{{ content }}") {
+    if !index_template.contains("{{ content }}") {
         return Err(CangkangError::Template(
-            "The base.html template is missing the '{{ content }}' placeholder.".to_string(),
+            "The index_template.html template is missing the '{{ content }}' placeholder."
+                .to_string(),
+        ));
+    }
+
+    let post_template_path = "templates/post_template.html";
+    let post_template = std::fs::read_to_string(post_template_path).map_err(|e| {
+        CangkangError::Template(format!(
+            "Could not read post template at '{}': {}",
+            post_template_path, e
+        ))
+    })?;
+    if !post_template.contains("{{ content }}") {
+        return Err(CangkangError::Template(
+            "The post_template.html template is missing the '{{ content }}' placeholder."
+                .to_string(),
         ));
     }
 
@@ -38,10 +54,18 @@ pub fn build_site() -> Result<(), CangkangError> {
         )));
     }
 
-    let mut all_pages = process_directory(content_dir, content_dir, dist_dir, &template)?;
+    let public_dir = Path::new("public");
+    if public_dir.exists() {
+        println!("Copying static assets from public/...");
+        if let Err(e) = fs::copy_dir_all(public_dir, dist_dir) {
+            eprintln!("Warning: Failed to copy public directory: {}", e);
+        }
+    }
+
+    let mut all_pages = process_directory(content_dir, content_dir, dist_dir, &post_template)?;
     all_pages.sort_by(|a, b| a.title.cmp(&b.title));
 
-    build_index(&all_pages, dist_dir, &template)?;
+    build_index(&all_pages, dist_dir, &index_template)?;
 
     println!(
         "Build complete! Check the '{}' directory.",
@@ -50,19 +74,36 @@ pub fn build_site() -> Result<(), CangkangError> {
     Ok(())
 }
 
-fn build_index(pages: &[PageInfo], dist_dir: &Path, template: &str) -> Result<(), CangkangError> {
-    let mut index_content = String::from("<h1>SiputBiru's Notes</h1>\n<ul>\n");
+fn build_index(
+    pages: &[PageInfo],
+    dist_dir: &Path,
+    index_template: &str,
+) -> Result<(), CangkangError> {
+    let mut index_content = String::from("<ul class=\"index-list\">\n");
+
     for page in pages {
+        // Show the date if it exists
+        let date_str = if page.date.is_empty() {
+            String::new()
+        } else {
+            format!(
+                " <span style=\"color: var(--muted-text); font-size: 0.85em;\">({})</span>",
+                page.date
+            )
+        };
+
         index_content.push_str(&format!(
-            "  <li><a href=\"./{}\">{}</a></li>\n",
-            page.url, page.title
+            "  <li><a href=\"./{}\">{}</a>{}</li>\n",
+            page.url, page.title, date_str
         ));
     }
     index_content.push_str("</ul>\n");
 
-    let final_index_html = template
+    let final_index_html = index_template
         .replace("{{ content }}", &index_content)
-        .replace("{{ body_class }}", "is-home");
+        .replace("{{ title }}", "SiputBiru's Notes")
+        .replace("{{ root_dir }}", "./");
+
     let index_path = dist_dir.join("index.html");
 
     fs::write_html_file(&index_path, &final_index_html)?;
@@ -113,29 +154,55 @@ fn compile_file(
 ) -> Result<PageInfo, CangkangError> {
     println!("Compiling: {}", input_path.display());
 
-    let md_content = fs::read_markdown_file(input_path)?;
-    let lexer = Lexer::new(&md_content);
-    let mut parser = Parser::new(lexer);
+    let raw_content = fs::read_markdown_file(input_path)?;
 
-    // parser.parse_document() already returns Result<Document, CangkangError>
+    // Strip the frontmatter off the top
+    let (metadata, md_content) = frontmatter::parse(&raw_content)?;
+
+    // Pass ONLY the pure markdown into the lexer
+    let lexer = Lexer::new(md_content);
+    let mut parser = Parser::new(lexer);
     let document = parser.parse_document()?;
 
-    let title = extract_title(&document);
-    let html_output = crate::html::generate_html(&document);
-    let final_html = template
-        .replace("{{ content }}", &html_output)
-        .replace("{{ body_class }}", "is-post");
+    // Use the JSON title, but fall back to the old H1 extraction if it's "Untitled"
+    let mut title = metadata.title.clone();
+    if title == "Untitled" {
+        title = extract_title(&document);
+    }
 
     let relative_path = input_path.strip_prefix(base_content_dir).unwrap();
+    // Calculate how deep this file is in the folder tree
+    // If it's "hello.md", count is 1 (depth 0).
+    // If it's "post/hello.md", count is 2 (depth 1).
+    let depth = relative_path.components().count() - 1;
+    let root_dir = if depth == 0 {
+        String::from("./")
+    } else {
+        "../".repeat(depth)
+    };
+
     let mut output_path = base_dist_dir.join(relative_path);
     output_path.set_extension("html");
 
     let url_path = output_path.strip_prefix(base_dist_dir).unwrap();
-    let url = url_path.to_string_lossy().replace("\\", "./");
+    let url = url_path.to_string_lossy().replace("\\", "/");
+
+    let html_output = crate::html::generate_html(&document).replace("{{ root_dir }}", &root_dir);
+    // Inject the new variables into the template
+    let final_html = template
+        .replace("{{ content }}", &html_output)
+        .replace("{{ title }}", &title)
+        .replace("{{ date }}", &metadata.date)
+        .replace("{{ root_dir }}", &root_dir);
 
     fs::write_html_file(&output_path, &final_html)?;
 
-    Ok(PageInfo { title, url })
+    // Return the date so the index page can use it
+    Ok(PageInfo {
+        title,
+        url,
+        date: metadata.date,
+    })
 }
 
 fn extract_title(doc: &Document) -> String {

@@ -15,14 +15,31 @@ pub enum Inline {
     Image { alt: String, url: String },
     Code(String),
     FootnoteRef(String),
+    LineBreak,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Block {
-    Heading { level: u8, content: Vec<Inline> },
+    Heading {
+        level: u8,
+        content: Vec<Inline>,
+    },
     Paragraph(Vec<Inline>),
-    CodeBlock { language: String, code: String },
-    FootnoteDef { id: String, content: Vec<Inline> },
+    Code {
+        language: String,
+        code: String,
+    },
+    FootnoteDef {
+        id: String,
+        content: Vec<Inline>,
+    },
+    List(Vec<(usize, Vec<Inline>)>),
+    OrderedList(Vec<(usize, Vec<Inline>)>),
+    // HorizontalRule,
+    Callout {
+        kind: String, // "note", "warn", etc.
+        content: Vec<Inline>,
+    },
 }
 
 pub struct Parser {
@@ -150,7 +167,16 @@ impl Parser {
                     inlines.push(Inline::Code(code));
                 }
                 _ => {
-                    inlines.push(Inline::Text(format!("{:?}", self.current_token)));
+                    let text = match &self.current_token {
+                        Token::Colon => ":".to_string(),
+                        Token::Caret => "^".to_string(),
+                        Token::ParenLeft => "(".to_string(),
+                        Token::ParenRight => ")".to_string(),
+                        Token::BracketRight => "]".to_string(),
+                        Token::Bang => "!".to_string(),
+                        _ => format!("{:?}", self.current_token),
+                    };
+                    inlines.push(Inline::Text(text));
                     self.new_token();
                 }
             }
@@ -163,8 +189,13 @@ impl Parser {
 
         let mut text = String::new();
         while self.current_token != Token::Eof && self.current_token != Token::BracketRight {
-            if let Token::Text(ref t) = self.current_token {
-                text.push_str(t);
+            match &self.current_token {
+                Token::Text(t) => text.push_str(t),
+                Token::Colon => text.push(':'),
+                Token::Caret => text.push('^'),
+                Token::Asterisk => text.push('*'),
+                Token::Bang => text.push('!'),
+                _ => {}
             }
             self.new_token();
         }
@@ -183,8 +214,13 @@ impl Parser {
 
         let mut url = String::new();
         while self.current_token != Token::Eof && self.current_token != Token::ParenRight {
-            if let Token::Text(ref t) = self.current_token {
-                url.push_str(t);
+            match &self.current_token {
+                Token::Text(t) => url.push_str(t),
+                Token::Colon => url.push(':'),
+                Token::Caret => url.push('^'),
+                Token::Asterisk => url.push('*'),
+                Token::Bang => text.push('!'),
+                _ => {}
             }
             self.new_token();
         }
@@ -241,6 +277,8 @@ impl Parser {
                 Token::ParenLeft => code.push('('),
                 Token::ParenRight => code.push(')'),
                 Token::Bang => code.push('!'),
+                Token::Colon => code.push(':'),
+                Token::Caret => code.push('^'),
                 Token::HeadingMarker(n) => {
                     for _ in 0..*n {
                         code.push('#');
@@ -256,7 +294,7 @@ impl Parser {
             self.new_token();
         }
 
-        Ok(Block::CodeBlock {
+        Ok(Block::Code {
             language: language.trim().to_string(),
             code,
         })
@@ -276,6 +314,30 @@ impl Parser {
                 Token::BackTick(n) if n >= 3 => self.parse_code_block(n)?,
                 Token::BracketLeft if self.peek_token == Token::Caret => {
                     self.parse_footnote_def()?
+                }
+                Token::Asterisk => {
+                    let is_list = matches!(
+                        (&self.current_token, &self.peek_token),
+                        (Token::Asterisk, Token::Text(t)) if t.starts_with([' ', '\t'])
+                    );
+
+                    if is_list {
+                        self.parse_list()?
+                    } else {
+                        self.parse_paragraph()?
+                    }
+                }
+                Token::Text(ref t) if t.trim().is_empty() && self.peek_token == Token::Asterisk => {
+                    self.parse_list()?
+                }
+                Token::Text(ref t) if t.starts_with('>') => self.parse_callout()?,
+                Token::Text(ref t)
+                    if {
+                        let trimmed = t.trim_start();
+                        trimmed.starts_with(|c: char| c.is_ascii_digit()) && trimmed.contains(". ")
+                    } =>
+                {
+                    self.parse_ordered_list()?
                 }
                 _ => self.parse_paragraph()?,
             };
@@ -306,6 +368,55 @@ impl Parser {
         }
 
         Ok(Block::Heading { level, content })
+    }
+
+    fn parse_list(&mut self) -> Result<Block, CangkangError> {
+        let mut items = Vec::new();
+
+        loop {
+            let mut indent = 0;
+            let mut is_list_item = false;
+
+            // Case 1: The line starts with spaces, then an Asterisk
+            if let Token::Text(t) = &self.current_token {
+                if t.trim().is_empty() && self.peek_token == Token::Asterisk {
+                    indent = t.len(); // Count the spaces!
+                    self.new_token(); // Consume the spaces
+                    is_list_item = true;
+                }
+            }
+            // Case 2: The line starts directly with an Asterisk
+            else if self.current_token == Token::Asterisk {
+                is_list_item = true;
+            }
+
+            if !is_list_item {
+                break;
+            }
+
+            self.new_token(); // Consume the '*'
+
+            // Strip leading spaces from the actual text
+            if let Token::Text(text) = &mut self.current_token {
+                let trimmed = text.trim_start().to_string();
+                if trimmed.is_empty() {
+                    self.new_token();
+                } else {
+                    *text = trimmed;
+                }
+            }
+
+            let content = self.parse_inline()?;
+
+            // Store the indent count with the content!
+            items.push((indent, content));
+
+            if self.current_token == Token::Newline {
+                self.new_token();
+            }
+        }
+
+        Ok(Block::List(items))
     }
 
     fn parse_paragraph(&mut self) -> Result<Block, CangkangError> {
@@ -341,6 +452,100 @@ impl Parser {
         }
 
         Ok(Block::FootnoteDef { id, content })
+    }
+
+    fn parse_ordered_list(&mut self) -> Result<Block, CangkangError> {
+        let mut items = Vec::new();
+
+        loop {
+            let mut is_numbered = false;
+            let mut indent = 0;
+
+            if let Token::Text(t) = &self.current_token {
+                // 👇 Count the spaces at the start of the line
+                let trimmed = t.trim_start();
+                indent = t.len() - trimmed.len();
+
+                // Check if the trimmed part starts with a number and a dot
+                if trimmed.starts_with(|c: char| c.is_ascii_digit()) && trimmed.contains(". ") {
+                    is_numbered = true;
+                }
+            }
+
+            if !is_numbered {
+                break;
+            }
+
+            // Strip the spaces AND the "1. " from the start of the token
+            if let Token::Text(text) = &mut self.current_token {
+                let trimmed = text.trim_start();
+                let dot_idx = trimmed.find(". ").unwrap();
+                let final_text = trimmed[dot_idx + 2..].to_string();
+                *text = final_text;
+            }
+
+            let content = self.parse_inline()?;
+
+            // Store the indent count alongside the content
+            items.push((indent, content));
+
+            if self.current_token == Token::Newline {
+                self.new_token();
+            }
+        }
+        Ok(Block::OrderedList(items))
+    }
+
+    fn parse_callout(&mut self) -> Result<Block, CangkangError> {
+        let mut raw_text = String::new();
+
+        // Consume everything that belongs to this blockquote
+        while self.current_token != Token::Eof {
+            if self.current_token == Token::Newline && self.peek_token == Token::Newline {
+                break; // Double newline ends the blockquote
+            }
+
+            match &self.current_token {
+                Token::Text(t) => raw_text.push_str(t),
+                Token::BracketLeft => raw_text.push('['),
+                Token::BracketRight => raw_text.push(']'),
+                Token::Bang => raw_text.push('!'),
+                Token::Newline => raw_text.push('\n'),
+                Token::Asterisk => raw_text.push('*'),
+                _ => {}
+            }
+            self.new_token();
+        }
+
+        let cleaned_text = raw_text.replace("> ", "").replace(">", "");
+
+        let mut kind = "quote".to_string();
+
+        let final_text = if cleaned_text.trim_start().starts_with("[!NOTE]") {
+            kind = "note".to_string();
+            cleaned_text.replace("[!NOTE]", "").trim().to_string()
+        } else if cleaned_text.trim_start().starts_with("[!WARN]") {
+            kind = "warn".to_string();
+            cleaned_text.replace("[!WARN]", "").trim().to_string()
+        } else {
+            cleaned_text.trim().to_string()
+        };
+
+        let mut sub_parser = Parser::new(Lexer::new(&final_text));
+        let mut content = Vec::new();
+
+        while sub_parser.current_token != Token::Eof {
+            if sub_parser.current_token == Token::Newline {
+                content.push(Inline::LineBreak);
+                sub_parser.new_token();
+                continue;
+            }
+            if let Ok(mut inlines) = sub_parser.parse_inline() {
+                content.append(&mut inlines);
+            }
+        }
+
+        Ok(Block::Callout { kind, content })
     }
 }
 
@@ -416,7 +621,7 @@ mod tests {
         // Check Block Fenced Code Block)
         assert_eq!(
             doc.blocks[2],
-            Block::CodeBlock {
+            Block::Code {
                 language: "rust".to_string(),
                 code: "let x = 5;\n".to_string(),
             }

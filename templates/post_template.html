@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#121212" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
-    <title>SiputBiru's Notes</title>
+    <title>{{ title }} - SiputBiru's Notes</title>
     <style>
         :root {
             --bg-color: #121212;
             --text-color: #e0e0e0;
-            --link-color: #66b3ff;
+            --link-color: #D3F6FF;
             --code-bg: #1e1e1e;
             --code-text: #e8e8e8;
             --border-color: #333333;
@@ -32,13 +32,22 @@
             margin-top: 2rem;
             margin-bottom: 1rem;
             font-weight: 600;
-            color: #ffffff; /* Make headings pop slightly more */
+            color: #ffffff;
         }
 
         p { margin-bottom: 1.2rem; }
         
         a { color: var(--link-color); text-decoration: none; }
         a:hover { text-decoration: underline; }
+
+        /* --- Post Headers --- */
+        .post-title { margin-bottom: 0; }
+        .post-date {
+            color: var(--muted-text); 
+            font-size: 0.9em; 
+            margin-top: 0.2rem; 
+            margin-bottom: 2rem;
+        }
 
         /* --- Code Block Styling --- */
         pre {
@@ -61,8 +70,16 @@
 
         pre code { padding: 0; background-color: transparent; border-radius: 0; }
 
-        /* --- Gingerbill / Tufte Sidenotes --- */
-        
+        /* --- Media --- */
+        main img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px; 
+            display: block; 
+            margin: 1rem auto;
+        }
+
+        /* --- Sidenotes --- */
         input.margin-toggle { display: none; }
         
         .sidenote-number { 
@@ -92,9 +109,6 @@
                 cursor: pointer;
                 pointer-events: auto;
             }
-            .sidenote-number:hover { 
-                text-decoration: underline; 
-            }
 
             .sidenote {
                 display: none; 
@@ -110,17 +124,70 @@
                 display: block;
             }
         }
-        body.is-home nav { display: none; }
+
+        /* --- Rules & Callouts --- */
+        hr {
+            border: 0;
+            border-top: 1px solid var(--border-color);
+            margin: 2.5rem 0;
+        }
+
+        blockquote {
+            border-left: 4px solid var(--border-color);
+            margin: 1.5rem 0;
+            padding-left: 1rem;
+            color: var(--muted-text);
+            font-style: italic;
+        }
+
+        .callout {
+            border-left: 4px solid var(--link-color);
+            background-color: rgba(211, 246, 255, 0.05); /* Very subtle tint */
+            padding: 1rem 1rem;
+            margin: 1.5rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .callout.callout-warn {
+            border-left-color: #ffb86c; /* A nice warning orange */
+            background-color: rgba(255, 184, 108, 0.05);
+        }
+
+        .callout-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+
+        .callout > :last-child {
+            margin-bottom: 0;
+        }
+
+        ul, ol {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+        }
+        
+        li {
+            margin-bottom: 0.3rem;
+        }
+
+        ul + ol, ol + ul, ul + ul, ol + ol {
+            margin-top: -0.5rem; 
+        }
     </style>
 </head>
-  <body class="{{ body_class }}">
+  <body>
     <header>
-        <nav>
-            <a href="./index.html">← Home</a>
+        <nav style="margin-bottom: 2rem;">
+            <a href="{{ root_dir }}index.html">← Home</a>
         </nav>
     </header>
 
     <main>
+        <h1 class="post-title">{{ title }}</h1>
+        <p class="post-date">{{ date }}</p>
         {{ content }}
     </main>
 

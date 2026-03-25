@@ -1,5 +1,6 @@
 mod compiler;
 mod error;
+mod frontmatter;
 mod fs;
 mod html;
 mod lexer;
