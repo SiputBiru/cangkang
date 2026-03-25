@@ -10,6 +10,8 @@ pub enum Token {
     ParenRight,   // ')'
     Bang,         // '!' (for images: ![alt](url) )
     BackTick(u8), // '`' (for codeblock: ``` )
+    Caret,        // '^'
+    Colon,        // ':'
     Eof,
 }
 
@@ -103,6 +105,14 @@ impl Lexer {
                 }
                 Token::BackTick(count)
             }
+            '^' => {
+                self.read_char();
+                Token::Caret
+            }
+            ':' => {
+                self.read_char();
+                Token::Colon
+            }
             _ => {
                 let start_position = self.position;
                 while self.ch != '\n'
@@ -115,6 +125,8 @@ impl Lexer {
                     && self.ch != ')'
                     && self.ch != '!'
                     && self.ch != '`'
+                    && self.ch != '^'
+                    && self.ch != ':'
                 {
                     self.read_char();
                 }

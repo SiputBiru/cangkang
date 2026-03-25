@@ -14,6 +14,7 @@ pub enum Inline {
     Link { text: String, url: String },
     Image { alt: String, url: String },
     Code(String),
+    FootnoteRef(String),
 }
 
 #[derive(Debug, PartialEq)]
@@ -21,6 +22,7 @@ pub enum Block {
     Heading { level: u8, content: Vec<Inline> },
     Paragraph(Vec<Inline>),
     CodeBlock { language: String, code: String },
+    FootnoteDef { id: String, content: Vec<Inline> },
 }
 
 pub struct Parser {
@@ -92,9 +94,26 @@ impl Parser {
                     }
                 }
                 Token::BracketLeft => {
-                    // It's a Link: [text](url)
-                    let link = self.parse_link_or_image(false)?;
-                    inlines.push(link);
+                    // It's a Footnote
+                    if self.peek_token == Token::Caret {
+                        self.new_token();
+                        self.new_token();
+
+                        let mut id = String::new();
+                        if let Token::Text(ref t) = self.current_token {
+                            id.push_str(t);
+                            self.new_token();
+                        }
+
+                        if self.current_token == Token::BracketRight {
+                            self.new_token();
+                        }
+                        inlines.push(Inline::FootnoteRef(id))
+                    } else {
+                        // It's a Link: [text](url)
+                        let link = self.parse_link_or_image(false)?;
+                        inlines.push(link)
+                    }
                 }
                 Token::Bang => {
                     // It might be an image: ![alt](url)
@@ -255,6 +274,9 @@ impl Parser {
             let block = match self.current_token {
                 Token::HeadingMarker(_) => self.parse_heading()?,
                 Token::BackTick(n) if n >= 3 => self.parse_code_block(n)?,
+                Token::BracketLeft if self.peek_token == Token::Caret => {
+                    self.parse_footnote_def()?
+                }
                 _ => self.parse_paragraph()?,
             };
 
@@ -295,6 +317,31 @@ impl Parser {
 
         Ok(Block::Paragraph(content))
     }
+
+    fn parse_footnote_def(&mut self) -> Result<Block, CangkangError> {
+        self.new_token(); // Consume '['
+        self.new_token(); // Consume '^'
+
+        let mut id = String::new();
+
+        if let Token::Text(ref t) = self.current_token {
+            id.push_str(t);
+            self.new_token();
+        }
+
+        self.new_token(); // Consume ']'
+
+        if self.current_token == Token::Colon {
+            self.new_token(); // Consume ':'
+        }
+
+        let content = self.parse_inline()?;
+        if self.current_token == Token::Newline {
+            self.new_token();
+        }
+
+        Ok(Block::FootnoteDef { id, content })
+    }
 }
 
 #[cfg(test)]
@@ -331,7 +378,6 @@ mod tests {
 
     #[test]
     fn test_parse_inline_formatting() {
-        // A stress-test for inline things
         let input = "This has **bold** and *italic* text.\n\nCheck out my [Github](url) and this `inline code`.\n\n```rust\nlet x = 5;\n```";
 
         let lexer = Lexer::new(input);
@@ -373,6 +419,36 @@ mod tests {
             Block::CodeBlock {
                 language: "rust".to_string(),
                 code: "let x = 5;\n".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_footnotes() {
+        let input = "Here is a note[^1].\n\n[^1]: The actual note text\n";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let doc = parser.parse_document().expect("Failed to parse document");
+
+        assert_eq!(doc.blocks.len(), 2);
+
+        // Check the Inline Reference
+        assert_eq!(
+            doc.blocks[0],
+            Block::Paragraph(vec![
+                Inline::Text("Here is a note".to_string()),
+                Inline::FootnoteRef("1".to_string()),
+                Inline::Text(".".to_string()),
+            ])
+        );
+
+        // Check the Definition Block
+        assert_eq!(
+            doc.blocks[1],
+            Block::FootnoteDef {
+                id: "1".to_string(),
+                content: vec![Inline::Text(" The actual note text".to_string())]
             }
         );
     }

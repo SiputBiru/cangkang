@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#121212" />
     <title>SiputBiru's Notes</title>
     <style>
+        /* --- Modern Dark Mode --- */
         :root {
-            --bg-color: #ffffff;
-            --text-color: #111111;
-            --link-color: #0056b3;
-            --code-bg: #f4f4f4;
-            --code-text: #24292e;
-            --border-color: #eaeaea;
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --link-color: #66b3ff;
+            --code-bg: #1e1e1e;
+            --code-text: #e8e8e8;
+            --border-color: #333333;
+            --muted-text: #888888;
         }
 
         body {
@@ -20,7 +22,7 @@
             line-height: 1.6;
             color: var(--text-color);
             background-color: var(--bg-color);
-            max-width: 680px; /* Crucial for readability */
+            max-width: 680px; 
             margin: 0 auto;
             padding: 2rem 1rem;
         }
@@ -30,20 +32,13 @@
             margin-top: 2rem;
             margin-bottom: 1rem;
             font-weight: 600;
+            color: #ffffff; /* Make headings pop slightly more */
         }
 
-        p {
-            margin-bottom: 1.2rem;
-        }
-
-        a {
-            color: var(--link-color);
-            text-decoration: none;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
+        p { margin-bottom: 1.2rem; }
+        
+        a { color: var(--link-color); text-decoration: none; }
+        a:hover { text-decoration: underline; }
 
         /* --- Code Block Styling --- */
         pre {
@@ -58,23 +53,64 @@
         code {
             font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
             background-color: var(--code-bg);
+            color: var(--code-text);
             padding: 0.2em 0.4em;
             border-radius: 3px;
             font-size: 0.9em;
         }
 
-        /* Prevent pre code blocks from having double padding/backgrounds */
-        pre code {
-            padding: 0;
-            background-color: transparent;
-            border-radius: 0;
+        pre code { padding: 0; background-color: transparent; border-radius: 0; }
+
+        /* --- Gingerbill / Tufte Sidenotes --- */
+        
+        /* Hide the ugly checkbox */
+        .margin-toggle { display: none; }
+        
+        /* Style the clickable number [1] */
+        .sidenote-number { 
+            cursor: pointer; 
+            color: var(--link-color); 
+            vertical-align: super; 
+            font-size: 0.8em; 
+            padding: 0 0.1em;
+        }
+        .sidenote-number:hover { text-decoration: underline; }
+
+        /* By default on wide screens, push the note into the right margin */
+        .sidenote {
+            float: right;
+            clear: right;
+            margin-right: -45%; /* Push it outside the 680px body */
+            width: 40%;
+            margin-top: 0.3rem;
+            margin-bottom: 0;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: var(--muted-text);
+        }
+
+        /* On smaller screens (like mobile), collapse them inline! */
+        @media (max-width: 1100px) {
+            .sidenote {
+                display: none; /* Hide by default */
+                float: left;
+                clear: both;
+                width: 95%;
+                margin: 1rem 0;
+                padding-left: 1rem;
+                border-left: 2px solid var(--border-color);
+            }
+            /* When the hidden checkbox is checked (by clicking the number), reveal the note */
+            .margin-toggle:checked + .sidenote {
+                display: block;
+            }
         }
     </style>
 </head>
 <body>
     <header>
         <nav>
-            <a href="./index.html">Home</a>
+            <a href="./index.html">← Home</a>
         </nav>
     </header>
 
@@ -82,7 +118,7 @@
         {{ content }}
     </main>
 
-    <footer style="margin-top: 4rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: 0.8em; color: #666;">
+    <footer style="margin-top: 4rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: 0.8em; color: var(--muted-text);">
         Built with <a href="https://github.com/SiputBiru/cangkang">Cangkang</a>.<br>
         © 2026-present siputbiru
     </footer>
