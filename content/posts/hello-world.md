@@ -49,4 +49,12 @@ nested numbered item
 
 Here is a normal paragraph, but it has a secret footnote attached to it[^1].
 
+Table:
+
+| Feature | Supported | Alignment |
+| :--- | :---: | ---: |
+| **Bold Text** | Yes | Center |
+| *Callouts* | Yes | Right |
+| Tables | Yes | *Magic* |
+
 [^1]: This is the footnote text! When we compile this, Cangkang will grab this text and turn it into a beautiful, interactive margin note.
