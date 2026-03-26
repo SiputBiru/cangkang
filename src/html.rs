@@ -87,11 +87,9 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
                 )
             } else {
                 let title = kind.to_uppercase();
-                let icon = if kind == "warn" { "⚠️" } else { "💡" };
                 format!(
-                    "<div class=\"callout callout-{}\">\n  <div class=\"callout-title\">{} {}</div>\n  <p>{}</p>\n</div>",
+                    "<div class=\"callout callout-{}\">\n  <div class=\"callout-title\"> {}</div>\n  <p>{}</p>\n</div>",
                     kind,
-                    icon,
                     title,
                     render_inlines(content, footnotes)
                 )
