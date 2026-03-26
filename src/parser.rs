@@ -6,6 +6,15 @@ pub struct Document {
     pub blocks: Vec<Block>,
 }
 
+// Table stuff
+#[derive(Debug, PartialEq, Clone)]
+pub enum Alignment {
+    Left,
+    Center,
+    Right,
+    Default,
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Inline {
     Text(String),
@@ -39,6 +48,11 @@ pub enum Block {
     Callout {
         kind: String, // "note", "warn", etc.
         content: Vec<Inline>,
+    },
+    Table {
+        headers: Vec<Vec<Inline>>,
+        alignments: Vec<Alignment>,
+        rows: Vec<Vec<Vec<Inline>>>, // row is a vec of cells, and a cells is a Vec of Inlines
     },
 }
 
@@ -339,6 +353,7 @@ impl Parser {
                 {
                     self.parse_ordered_list()?
                 }
+                Token::Text(ref t) if t.trim_start().starts_with('|') => self.parse_table()?,
                 _ => self.parse_paragraph()?,
             };
 
@@ -546,6 +561,97 @@ impl Parser {
         }
 
         Ok(Block::Callout { kind, content })
+    }
+
+    fn read_line_raw(&mut self) -> String {
+        let mut raw = String::new();
+        while self.current_token != Token::Eof && self.current_token != Token::Newline {
+            match &self.current_token {
+                Token::Text(t) => raw.push_str(t),
+                Token::Asterisk => raw.push('*'),
+                Token::BracketLeft => raw.push('['),
+                Token::BracketRight => raw.push(']'),
+                Token::ParenLeft => raw.push('('),
+                Token::ParenRight => raw.push(')'),
+                Token::Bang => raw.push('!'),
+                Token::Colon => raw.push(':'),
+                Token::Caret => raw.push('^'),
+                Token::HeadingMarker(n) => raw.push_str(&"#".repeat(*n as usize)),
+                Token::BackTick(n) => raw.push_str(&"`".repeat(*n as usize)),
+                _ => {}
+            }
+            self.new_token();
+        }
+        if self.current_token == Token::Newline {
+            self.new_token();
+        }
+        raw
+    }
+
+    // Table Stuff
+    fn parse_table_row(&self, line: &str) -> Vec<Vec<Inline>> {
+        let trimmed = line.trim();
+        // Strip the outer pipes (e.g., "| cell |" becomes " cell ")
+        let content = if trimmed.starts_with('|') && trimmed.ends_with('|') {
+            &trimmed[1..trimmed.len() - 1]
+        } else {
+            trimmed
+        };
+
+        let mut parsed_cells = Vec::new();
+        for cell in content.split('|') {
+            // Spin up a mini-parser for every single cell!
+            let mut sub_parser = Parser::new(Lexer::new(cell.trim()));
+            let inlines = sub_parser.parse_inline().unwrap_or_default();
+            parsed_cells.push(inlines);
+        }
+        parsed_cells
+    }
+
+    fn parse_table(&mut self) -> Result<Block, CangkangError> {
+        // Grab the Header row
+        let header_line = self.read_line_raw();
+        let headers = self.parse_table_row(&header_line);
+
+        // Grab the Alignment/Divider row (e.g., |:---|---:|)
+        let divider_line = self.read_line_raw();
+        let trimmed_div = divider_line.trim();
+        let div_content = if trimmed_div.starts_with('|') && trimmed_div.ends_with('|') {
+            &trimmed_div[1..trimmed_div.len() - 1]
+        } else {
+            trimmed_div
+        };
+
+        let alignments: Vec<Alignment> = div_content
+            .split('|')
+            .map(|cell| {
+                let c = cell.trim();
+                let left = c.starts_with(':');
+                let right = c.ends_with(':');
+                if left && right {
+                    Alignment::Center
+                } else if left {
+                    Alignment::Left
+                } else if right {
+                    Alignment::Right
+                } else {
+                    Alignment::Default
+                }
+            })
+            .collect();
+
+        // Grab all the Body rows
+        let mut rows = Vec::new();
+        while matches!(&self.current_token, Token::Text(t) if t.trim_start().starts_with('|')) {
+            let row_line = self.read_line_raw();
+            rows.push(self.parse_table_row(&row_line));
+        }
+
+        Ok(Block::Table {
+            headers,
+            alignments,
+            rows,
+        })
     }
 }
 

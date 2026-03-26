@@ -100,6 +100,60 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
                 )
             }
         }
+
+        Block::Table {
+            headers,
+            alignments,
+            rows,
+        } => {
+            let mut html = String::from("<div class=\"table-wrapper\">\n<table>\n");
+
+            // --- THEAD ---
+            html.push_str("  <thead>\n    <tr>\n");
+            for (i, header) in headers.iter().enumerate() {
+                let align = alignments
+                    .get(i)
+                    .unwrap_or(&crate::parser::Alignment::Default);
+                let align_style = match align {
+                    crate::parser::Alignment::Left => " style=\"text-align: left;\"",
+                    crate::parser::Alignment::Center => " style=\"text-align: center;\"",
+                    crate::parser::Alignment::Right => " style=\"text-align: right;\"",
+                    crate::parser::Alignment::Default => "",
+                };
+                html.push_str(&format!(
+                    "      <th{}>{}</th>\n",
+                    align_style,
+                    render_inlines(header, footnotes)
+                ));
+            }
+            html.push_str("    </tr>\n  </thead>\n");
+
+            // --- TBODY ---
+            html.push_str("  <tbody>\n");
+            for row in rows {
+                html.push_str("    <tr>\n");
+                for (i, cell) in row.iter().enumerate() {
+                    let align = alignments
+                        .get(i)
+                        .unwrap_or(&crate::parser::Alignment::Default);
+                    let align_style = match align {
+                        crate::parser::Alignment::Left => " style=\"text-align: left;\"",
+                        crate::parser::Alignment::Center => " style=\"text-align: center;\"",
+                        crate::parser::Alignment::Right => " style=\"text-align: right;\"",
+                        crate::parser::Alignment::Default => "",
+                    };
+                    html.push_str(&format!(
+                        "      <td{}>{}</td>\n",
+                        align_style,
+                        render_inlines(cell, footnotes)
+                    ));
+                }
+                html.push_str("    </tr>\n");
+            }
+            html.push_str("  </tbody>\n</table>\n</div>\n");
+
+            html
+        }
     }
 }
 
