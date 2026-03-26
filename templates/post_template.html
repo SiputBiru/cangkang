@@ -81,16 +81,29 @@
 
         /* --- Sidenotes --- */
         input.margin-toggle { display: none; }
-        
-        .sidenote-number { 
+
+        /* The clickable number in the main text */
+        .sidenote-number-ref { 
             cursor: pointer; 
             color: var(--link-color); 
             vertical-align: super; 
             font-size: 0.8em; 
             padding: 0 0.1em;
             pointer-events: none;
+            -webkit-tap-highlight-color: transparent; 
         }
-        .sidenote-number:hover { text-decoration: underline; }
+        .sidenote-number-ref:hover { text-decoration: underline; }
+
+        /* The static number inside the margin note */
+        .sidenote-number-def {
+            color: var(--link-color); 
+            cursor: pointer; 
+            font-weight: 600;
+            vertical-align: super; 
+            font-size: 0.75em; 
+            pointer-events: none;
+            padding-right: 0.1em;
+        }
 
         .sidenote {
             float: right;
@@ -105,8 +118,7 @@
         }
 
         @media (max-width: 1100px) {
-            .sidenote-number {
-                cursor: pointer;
+            .sidenote-number-ref {
                 pointer-events: auto;
             }
 

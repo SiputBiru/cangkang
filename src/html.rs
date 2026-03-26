@@ -8,15 +8,13 @@ pub fn generate_html(document: &Document) -> String {
     let mut footnotes = HashMap::new();
     for block in &document.blocks {
         if let Block::FootnoteDef { id, content } = block {
-            // Render the inner content of the footnote ahead of time
-            let rendered_content = render_inlines(content, &HashMap::new());
-            footnotes.insert(id.clone(), rendered_content);
+            footnotes.insert(id.clone(), render_inlines(content, &HashMap::new()));
         }
     }
 
     // PASS 2: Render everything else, passing the footnote map down
     for block in &document.blocks {
-        // Skip rendering the definitions at the bottom (just like Gingerbill!)
+        // Skip rendering the definitions at the bottom
         if let Block::FootnoteDef { .. } = block {
             continue;
         }
@@ -55,8 +53,7 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
         Block::List(items) => {
             let mut html = String::from("<ul>\n");
             for (indent, item) in items {
-                // If indent is 4, margin is 1.5rem. If 8, margin is 3.0rem!
-                let margin = (indent / 4) as f32 * 1.5;
+                let margin = (*indent / 4) as f32 * 1.5;
                 html.push_str(&format!(
                     "  <li style=\"margin-left: {}rem;\">{}</li>\n",
                     margin,
@@ -69,7 +66,7 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
         Block::OrderedList(items) => {
             let mut html = String::from("<ol>\n");
             for (indent, item) in items {
-                let margin = (indent / 4) as f32 * 1.5;
+                let margin = (*indent / 4) as f32 * 1.5;
                 html.push_str(&format!(
                     "  <li style=\"margin-left: {}rem;\">{}</li>\n",
                     margin,
@@ -80,7 +77,7 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
             html
         }
 
-        Block::FootnoteDef { .. } => String::new(), // Handled above
+        Block::FootnoteDef { .. } => String::new(), // Handled in Pass 1
 
         Block::Callout { kind, content } => {
             if kind == "quote" {
@@ -114,15 +111,9 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
                 let align = alignments
                     .get(i)
                     .unwrap_or(&crate::parser::Alignment::Default);
-                let align_style = match align {
-                    crate::parser::Alignment::Left => " style=\"text-align: left;\"",
-                    crate::parser::Alignment::Center => " style=\"text-align: center;\"",
-                    crate::parser::Alignment::Right => " style=\"text-align: right;\"",
-                    crate::parser::Alignment::Default => "",
-                };
                 html.push_str(&format!(
                     "      <th{}>{}</th>\n",
-                    align_style,
+                    get_align_style(align),
                     render_inlines(header, footnotes)
                 ));
             }
@@ -136,15 +127,9 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
                     let align = alignments
                         .get(i)
                         .unwrap_or(&crate::parser::Alignment::Default);
-                    let align_style = match align {
-                        crate::parser::Alignment::Left => " style=\"text-align: left;\"",
-                        crate::parser::Alignment::Center => " style=\"text-align: center;\"",
-                        crate::parser::Alignment::Right => " style=\"text-align: right;\"",
-                        crate::parser::Alignment::Default => "",
-                    };
                     html.push_str(&format!(
                         "      <td{}>{}</td>\n",
-                        align_style,
+                        get_align_style(align),
                         render_inlines(cell, footnotes)
                     ));
                 }
@@ -183,11 +168,24 @@ fn render_inline(inline: &Inline, footnotes: &HashMap<String, String>) -> String
                 .get(id)
                 .cloned()
                 .unwrap_or_else(|| "Missing footnote".to_string());
+
+            // inject split label
             format!(
-                r#"<label for="sn-{}" class="sidenote-number">[{}]</label><input type="checkbox" id="sn-{}" class="margin-toggle"/><span class="sidenote">{}</span>"#,
-                id, id, id, content
+                r#"<label for="sn-{id}" class="sidenote-number-ref">[{id}]</label><input type="checkbox" id="sn-{id}" class="margin-toggle"/><span class="sidenote"><span class="sidenote-number-def" style="user-select: none;">[{id}]</span> {content}</span>"#,
+                id = id,
+                content = content.trim_start()
             )
         }
+    }
+}
+
+// Helper to clean up table alignment generation
+fn get_align_style(align: &crate::parser::Alignment) -> &'static str {
+    match align {
+        crate::parser::Alignment::Left => " style=\"text-align: left;\"",
+        crate::parser::Alignment::Center => " style=\"text-align: center;\"",
+        crate::parser::Alignment::Right => " style=\"text-align: right;\"",
+        crate::parser::Alignment::Default => "",
     }
 }
 
@@ -213,7 +211,6 @@ mod tests {
 
     #[test]
     fn test_generate_simple_html() {
-        // Construct a manual AST to test the generator
         let doc = Document {
             blocks: vec![
                 Block::Heading {
@@ -247,17 +244,17 @@ mod tests {
                     Inline::FootnoteRef("1".to_string()),
                     Inline::Text(".".to_string()),
                 ]),
-                // The footnote definition (which should be hidden in the final HTML!)
+                // The footnote definition
                 Block::FootnoteDef {
                     id: "1".to_string(),
-                    content: vec![Inline::Text(" Written in Rust.".to_string())],
+                    content: vec![Inline::Text("Written in Rust.".to_string())],
                 },
             ],
         };
 
         let generated = generate_html(&doc);
 
-        let expected_html = "<p>Cangkang is fast<label for=\"sn-1\" class=\"sidenote-number\">[1]</label><input type=\"checkbox\" id=\"sn-1\" class=\"margin-toggle\"/><span class=\"sidenote\"> Written in Rust.</span>.</p>\n";
+        let expected_html = "<p>Cangkang is fast<label for=\"sn-1\" class=\"sidenote-number-ref\">[1]</label><input type=\"checkbox\" id=\"sn-1\" class=\"margin-toggle\"/><span class=\"sidenote\"><span class=\"sidenote-number-def\" style=\"user-select: none;\">[1]</span> Written in Rust.</span>.</p>\n";
 
         assert_eq!(generated, expected_html);
     }

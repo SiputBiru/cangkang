@@ -444,31 +444,6 @@ impl Parser {
         Ok(Block::Paragraph(content))
     }
 
-    fn parse_footnote_def(&mut self) -> Result<Block, CangkangError> {
-        self.new_token(); // Consume '['
-        self.new_token(); // Consume '^'
-
-        let mut id = String::new();
-
-        if let Token::Text(ref t) = self.current_token {
-            id.push_str(t);
-            self.new_token();
-        }
-
-        self.new_token(); // Consume ']'
-
-        if self.current_token == Token::Colon {
-            self.new_token(); // Consume ':'
-        }
-
-        let content = self.parse_inline()?;
-        if self.current_token == Token::Newline {
-            self.new_token();
-        }
-
-        Ok(Block::FootnoteDef { id, content })
-    }
-
     fn parse_ordered_list(&mut self) -> Result<Block, CangkangError> {
         let mut items = Vec::new();
 
@@ -477,7 +452,7 @@ impl Parser {
             let mut indent = 0;
 
             if let Token::Text(t) = &self.current_token {
-                // 👇 Count the spaces at the start of the line
+                // Count the spaces at the start of the line
                 let trimmed = t.trim_start();
                 indent = t.len() - trimmed.len();
 
@@ -652,6 +627,32 @@ impl Parser {
             alignments,
             rows,
         })
+    }
+
+    // parse footnote def
+    fn parse_footnote_def(&mut self) -> Result<Block, CangkangError> {
+        self.new_token(); // Consume '['
+        self.new_token(); // Consume '^'
+
+        let mut id = String::new();
+
+        if let Token::Text(ref t) = self.current_token {
+            id.push_str(t);
+            self.new_token();
+        }
+
+        self.new_token(); // Consume ']'
+
+        if self.current_token == Token::Colon {
+            self.new_token(); // Consume ':'
+        }
+
+        let content = self.parse_inline()?;
+        if self.current_token == Token::Newline {
+            self.new_token();
+        }
+
+        Ok(Block::FootnoteDef { id, content })
     }
 }
 
