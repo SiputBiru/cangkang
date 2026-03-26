@@ -1,0 +1,13 @@
+services:
+  cangkang-web:
+    container_name: cangkang_site
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+    # volumes:
+    #   - ./dist:/usr/share/nginx/html:ro
+    #   - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
