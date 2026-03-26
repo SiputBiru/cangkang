@@ -1,3 +1,6 @@
-# this is index
+---
+{
+    "title": "This is index",
+}
 
-[link](./test.html)
+---
