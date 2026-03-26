@@ -154,7 +154,11 @@ fn render_inline(inline: &Inline, footnotes: &HashMap<String, String>) -> String
         Inline::Bold(text) => format!("<strong>{}</strong>", escape_html(text)),
         Inline::Italic(text) => format!("<em>{}</em>", escape_html(text)),
         Inline::Code(code) => format!("<code>{}</code>", escape_html(code)),
-        Inline::Link { text, url } => format!("<a href=\"{}\">{}</a>", url, escape_html(text)),
+        Inline::Link { text, url } => format!(
+            "<a href=\"{}\" target=\"_blank\" rel=\"noopener noreferrer\">{}</a>",
+            url,
+            escape_html(text)
+        ),
         Inline::LineBreak => String::from("<br />"),
         Inline::Image { alt, url } => {
             format!("<img src=\"{}\" alt=\"{}\" />", url, escape_html(alt))

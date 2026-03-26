@@ -7,7 +7,7 @@ A simple and minimal SSG, written in Rust with zero dependencies.
 just do this:
 
 ```bash
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 I added dockerfile and docker compose to make it easy to deploy.
