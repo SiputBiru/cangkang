@@ -82,20 +82,21 @@ impl CalloutKind {
 
     // Helper for icon logic
     pub fn icon(&self) -> &'static str {
-        match self {
-            // (i) - Information Circle
-            Self::Note => "🛈 ",
-            // (!) - Check/Alert Circle or Lightbulb
-            Self::Tip => "𖡊 ",
-            // [!] - Message square alert or Exclamation Circle
-            Self::Important => "❕ ",
-            // /!\ - Triangle Warning
-            Self::Warn => "⚠ ",
-            // (x) - Octagon or Stop sign
-            Self::Caution => "✖ ",
-            // Default for Quote
-            Self::Quote => "",
-        }
+        // match self {
+        //     // (i) - Information Circle
+        //     Self::Note => "🛈 ",
+        //     // (!) - Check/Alert Circle or Lightbulb
+        //     Self::Tip => "𖡊 ",
+        //     // [!] - Message square alert or Exclamation Circle
+        //     Self::Important => "❕ ",
+        //     // /!\ - Triangle Warning
+        //     Self::Warn => "⚠ ",
+        //     // (x) - Octagon or Stop sign
+        //     Self::Caution => "✖ ",
+        //     // Default for Quote
+        //     Self::Quote => "",
+        // }
+        ""
     }
 }
 
