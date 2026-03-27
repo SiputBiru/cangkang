@@ -17,6 +17,7 @@ pub struct PageInfo {
     pub title: String,
     pub url: String,
     pub date: String,
+    pub pinned: bool,
 }
 
 pub fn build_site() -> Result<(), CangkangError> {
@@ -70,7 +71,7 @@ pub fn build_site() -> Result<(), CangkangError> {
     }
 
     let mut all_pages = process_directory(content_dir, content_dir, dist_dir, &post_template)?;
-    all_pages.sort_by(|a, b| a.title.cmp(&b.title));
+    all_pages.sort_by(|a, b| (b.pinned, &b.date).cmp(&(a.pinned, &a.date)));
 
     build_index(&all_pages, dist_dir, &index_template)?;
 
@@ -121,9 +122,11 @@ fn build_index(
             )
         };
 
+        let pin_icon = if page.pinned { "🖈 " } else { "" };
+
         index_content.push_str(&format!(
-            "  <li><a href=\"./{}\">{}</a>{}</li>\n",
-            page.url, page.title, date_str
+            "  <li>{}<a href=\"./{}\">{}</a>{}</li>\n",
+            pin_icon, page.url, page.title, date_str
         ));
     }
     index_content.push_str("</ul>\n");
@@ -230,6 +233,7 @@ fn compile_file(
         title,
         url,
         date: metadata.date,
+        pinned: metadata.pinned,
     })
 }
 

@@ -1,15 +1,19 @@
+use std::fmt::format;
+
 use crate::error::CangkangError;
 
 #[derive(Debug, Default)]
 pub struct PageMetadata {
     pub title: String,
     pub date: String,
+    pub pinned: bool,
 }
 
 pub fn parse(content: &str) -> Result<(PageMetadata, &str), CangkangError> {
     let mut metadata = PageMetadata {
         title: "Untitled".to_string(),
         date: "".to_string(),
+        pinned: false,
     };
 
     // Check if the file starts with the frontmatter dashes
@@ -28,6 +32,8 @@ pub fn parse(content: &str) -> Result<(PageMetadata, &str), CangkangError> {
             if let Some(d) = extract_json_value(json_str, "date") {
                 metadata.date = d;
             }
+
+            metadata.pinned = extract_boolean_value(json_str, "pinned");
 
             return Ok((metadata, remaining_content.trim_start()));
         } else {
@@ -62,4 +68,21 @@ fn extract_json_value(json_str: &str, key: &str) -> Option<String> {
 
     // Slice out everything in between
     Some(value_area[..end_quote].to_string())
+}
+
+fn extract_boolean_value(json_str: &str, key: &str) -> bool {
+    let quoted_key = format!("\"{}\"", key);
+
+    json_str
+        .find(&quoted_key)
+        .and_then(|k_idx| json_str[k_idx..].find(':').map(|c_idx| k_idx + c_idx + 1))
+        .map(|start| {
+            let search_area = &json_str[start..];
+            let end_idx = search_area
+                .find(',')
+                .or_else(|| search_area.find('}'))
+                .unwrap_or(search_area.len());
+            search_area[..end_idx].trim() == "true"
+        })
+        .unwrap_or(false)
 }
