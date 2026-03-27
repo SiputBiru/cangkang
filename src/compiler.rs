@@ -122,11 +122,15 @@ fn build_index(
             )
         };
 
-        let pin_icon = if page.pinned { "◈ " } else { "" };
+        let pin_class = if page.pinned {
+            " class=\"pinned-post\""
+        } else {
+            ""
+        };
 
         index_content.push_str(&format!(
-            "<li><span style=\"user-select: none;\">{}</span><a href=\"./{}\">{}</a>{}</li>\n",
-            pin_icon, page.url, page.title, date_str
+            "<li{}><a href=\"./{}\">{}</a>{}</li>\n",
+            pin_class, page.url, page.title, date_str
         ));
     }
     index_content.push_str("</ul>\n");
