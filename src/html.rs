@@ -96,7 +96,7 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
 
             format!(
                 r#"<div class="callout callout-{class_name}">
-  <div class="callout-title">{icon} {title}</div>
+  <div class="callout-title"><span style="user-select: none;">{icon}</span> {title}</div>
   <p>{body}</p>
 </div>"#,
             )
