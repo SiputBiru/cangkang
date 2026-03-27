@@ -1,4 +1,4 @@
-use crate::parser::{Block, Document, Inline};
+use crate::parser::{Block, CalloutKind, Document, Inline};
 use std::collections::HashMap;
 
 pub fn generate_html(document: &Document) -> String {
@@ -80,20 +80,26 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
         Block::FootnoteDef { .. } => String::new(), // Handled in Pass 1
 
         Block::Callout { kind, content } => {
-            if kind == "quote" {
-                format!(
-                    "<blockquote>{}</blockquote>",
+            // Handle the special "Quote" case
+            if let CalloutKind::Quote = kind {
+                return format!(
+                    "<blockquote>\n  <p>{}</p>\n</blockquote>",
                     render_inlines(content, footnotes)
-                )
-            } else {
-                let title = kind.to_uppercase();
-                format!(
-                    "<div class=\"callout callout-{}\">\n  <div class=\"callout-title\"> {}</div>\n  <p>{}</p>\n</div>",
-                    kind,
-                    title,
-                    render_inlines(content, footnotes)
-                )
+                );
             }
+
+            // Handle all other Callouts (Note, Warn, etc.)
+            let class_name = kind.as_str(); // e.g., "warn"
+            let icon = kind.icon(); // e.g., "⚠ "
+            let title = class_name.to_uppercase();
+            let body = render_inlines(content, footnotes);
+
+            format!(
+                r#"<div class="callout callout-{class_name}">
+  <div class="callout-title">{icon} {title}</div>
+  <p>{body}</p>
+</div>"#,
+            )
         }
 
         Block::Table {

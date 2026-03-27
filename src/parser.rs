@@ -46,7 +46,7 @@ pub enum Block {
     OrderedList(Vec<(usize, Vec<Inline>)>),
     // HorizontalRule,
     Callout {
-        kind: String, // "note", "warn", etc.
+        kind: CalloutKind, // "note", "warn", etc.
         content: Vec<Inline>,
     },
     Table {
@@ -55,6 +55,58 @@ pub enum Block {
         rows: Vec<Vec<Vec<Inline>>>, // row is a vec of cells, and a cells is a Vec of Inlines
     },
 }
+
+// Callout Map and enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CalloutKind {
+    Note,
+    Warn,
+    Tip,
+    Important,
+    Caution,
+    Quote,
+}
+
+impl CalloutKind {
+    // Helper to get the CSS class name
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Note => "note",
+            Self::Warn => "warn",
+            Self::Tip => "tip",
+            Self::Important => "important",
+            Self::Caution => "caution",
+            Self::Quote => "quote",
+        }
+    }
+
+    // Helper for icon logic
+    pub fn icon(&self) -> &'static str {
+        match self {
+            // (i) - Information Circle
+            Self::Note => "🛈 ",
+            // (!) - Check/Alert Circle or Lightbulb
+            Self::Tip => "𖡊 ",
+            // [!] - Message square alert or Exclamation Circle
+            Self::Important => "❕ ",
+            // /!\ - Triangle Warning
+            Self::Warn => "⚠ ",
+            // (x) - Octagon or Stop sign
+            Self::Caution => "✖ ",
+            // Default for Quote
+            Self::Quote => "",
+        }
+    }
+}
+
+static CALLOUT_MAP: &[(&str, CalloutKind)] = &[
+    ("[!NOTE]", CalloutKind::Note),
+    ("[!WARNING]", CalloutKind::Warn),
+    ("[!WARN]", CalloutKind::Warn),
+    ("[!TIP]", CalloutKind::Tip),
+    ("[!IMPORTANT]", CalloutKind::Important),
+    ("[!CAUTION]", CalloutKind::Caution),
+];
 
 pub struct Parser {
     lexer: Lexer,
@@ -489,12 +541,11 @@ impl Parser {
     fn parse_callout(&mut self) -> Result<Block, CangkangError> {
         let mut raw_text = String::new();
 
-        // Consume everything that belongs to this blockquote
+        // Token Collection
         while self.current_token != Token::Eof {
             if self.current_token == Token::Newline && self.peek_token == Token::Newline {
-                break; // Double newline ends the blockquote
+                break;
             }
-
             match &self.current_token {
                 Token::Text(t) => raw_text.push_str(t),
                 Token::BracketLeft => raw_text.push('['),
@@ -507,32 +558,27 @@ impl Parser {
             self.new_token();
         }
 
-        let cleaned_text = raw_text.replace("> ", "").replace(">", "");
+        // Extract Kind and Content
+        let cleaned = raw_text.replace("> ", "").replace('>', "");
+        let trimmed = cleaned.trim();
 
-        let mut kind = "quote".to_string();
+        let (kind, content_str) = CALLOUT_MAP
+            .iter()
+            .find(|(tag, _)| trimmed.starts_with(tag))
+            .map(|(tag, k)| (*k, trimmed[tag.len()..].trim())) // *k copies the enum
+            .unwrap_or((CalloutKind::Quote, trimmed));
 
-        let final_text = if cleaned_text.trim_start().starts_with("[!NOTE]") {
-            kind = "note".to_string();
-            cleaned_text.replace("[!NOTE]", "").trim().to_string()
-        } else if cleaned_text.trim_start().starts_with("[!WARN]") {
-            kind = "warn".to_string();
-            cleaned_text.replace("[!WARN]", "").trim().to_string()
-        } else {
-            cleaned_text.trim().to_string()
-        };
-
-        let mut sub_parser = Parser::new(Lexer::new(&final_text));
+        // Sub-parsing
+        let mut sub_parser = Parser::new(Lexer::new(content_str));
         let mut content = Vec::new();
 
         while sub_parser.current_token != Token::Eof {
             if sub_parser.current_token == Token::Newline {
                 content.push(Inline::LineBreak);
-                sub_parser.new_token();
-                continue;
-            }
-            if let Ok(mut inlines) = sub_parser.parse_inline() {
+            } else if let Ok(mut inlines) = sub_parser.parse_inline() {
                 content.append(&mut inlines);
             }
+            sub_parser.new_token();
         }
 
         Ok(Block::Callout { kind, content })
