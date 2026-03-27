@@ -108,7 +108,8 @@ fn build_index(
         index_content.push_str(&crate::html::generate_html(&document));
     }
 
-    index_content.push_str("\n<hr>\n<h3>All Posts</h3>\n<ul class=\"index-list\">\n");
+    // index_content.push_str("\n<hr>\n<h3>All Posts</h3>\n<ul class=\"index-list\">\n");
+    index_content.push_str("\n<ul class=\"index-list\">\n");
 
     for page in pages {
         let date_str = if page.date.is_empty() {
