@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use crate::error::CangkangError;
 
 #[derive(Debug, Default)]
