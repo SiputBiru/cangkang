@@ -122,10 +122,10 @@ fn build_index(
             )
         };
 
-        let pin_icon = if page.pinned { "🖈 " } else { "" };
+        let pin_icon = if page.pinned { "◈ " } else { "" };
 
         index_content.push_str(&format!(
-            "  <li>{}<a href=\"./{}\">{}</a>{}</li>\n",
+            "<li><span style=\"user-select: none;\">{}</span><a href=\"./{}\">{}</a>{}</li>\n",
             pin_icon, page.url, page.title, date_str
         ));
     }
