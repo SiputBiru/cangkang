@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- SEO and Discoverability features:
+    - Automatic `sitemap.xml` generation during build.
+    - RSS 2.0 feed (`index.xml`) generation for blog posts.
+    - Support for `description` and `keywords` in frontmatter.
+    - Meta tags for description and keywords in index and post templates.
+- Modularized architecture:
+    - Created `src/models.rs` to centralize data structures (`PageInfo`, `PageMetadata`).
+    - Created `src/seo.rs` to encapsulate all discoverability and asset generation logic.
+    - Decoupled `src/compiler.rs` and `src/frontmatter.rs` from data model definitions.
 - Dedicated color-coded logger in `src/logger.rs` with `log_info`, `log_success`, `log_warn`, and `log_error` macros.
 - Support for bold text in the logger and file path highlighting during compilation.
 - Context-aware error handling in `src/error.rs` with `IoContext` trait to attach file paths to IO errors.

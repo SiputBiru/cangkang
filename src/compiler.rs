@@ -6,16 +6,9 @@ use crate::frontmatter;
 use crate::fs;
 use crate::lexer::Lexer;
 use crate::logger::{BOLD, RESET};
+use crate::models::PageInfo;
 use crate::parser::{Block, Document, Inline, Parser};
 use crate::{log_info, log_success, log_warn};
-
-#[derive(Debug)]
-pub struct PageInfo {
-    pub title: String,
-    pub url: String,
-    pub date: String,
-    pub pinned: bool,
-}
 
 pub fn build_site() -> Result<(), CangkangError> {
     let start_time = Instant::now();
@@ -68,6 +61,9 @@ pub fn build_site() -> Result<(), CangkangError> {
 
     build_index(&all_pages, dist_dir, &index_template)?;
 
+    // SEO Asset Generation
+    crate::seo::generate_assets(&all_pages, dist_dir)?;
+
     let duration = start_time.elapsed();
     log_success!(
         "Build complete in {:.2?}! Check the '{}' directory.",
@@ -87,6 +83,8 @@ fn build_index(
 
     let index_md_path = Path::new("content/index.md");
     let mut page_title = String::from("SiputBiru's Notes"); // Default
+    let mut page_description = String::new();
+    let mut page_keywords = String::new();
 
     if index_md_path.exists() {
         let raw_content = fs::read_markdown_file(index_md_path)?;
@@ -95,6 +93,8 @@ fn build_index(
         if metadata.title != "Untitled" {
             page_title = metadata.title;
         }
+        page_description = metadata.description;
+        page_keywords = metadata.keywords;
 
         let lexer = Lexer::new(md_content);
         let mut parser = Parser::new(lexer);
@@ -102,7 +102,6 @@ fn build_index(
         index_content.push_str(&crate::html::generate_html(&document));
     }
 
-    // index_content.push_str("\n<hr>\n<h3>All Posts</h3>\n<ul class=\"index-list\">\n");
     index_content.push_str("\n<ul class=\"index-list\">\n");
 
     for page in pages {
@@ -131,6 +130,8 @@ fn build_index(
     let final_index_html = index_template
         .replace("{{ content }}", &index_content)
         .replace("{{ title }}", &page_title)
+        .replace("{{ description }}", &page_description)
+        .replace("{{ keywords }}", &page_keywords)
         .replace("{{ root_dir }}", "./");
 
     let index_path = dist_dir.join("index.html");
@@ -211,7 +212,6 @@ fn compile_file(
     output_path.set_extension("html");
 
     let url_path = output_path.strip_prefix(base_dist_dir).unwrap();
-    // let url = url_path.to_string_lossy().replace("\\", "/");
     let url = url_path
         .to_string_lossy()
         .replace("\\", "/")
@@ -223,6 +223,8 @@ fn compile_file(
         .replace("{{ content }}", &html_output)
         .replace("{{ title }}", &title)
         .replace("{{ date }}", &metadata.date)
+        .replace("{{ description }}", &metadata.description)
+        .replace("{{ keywords }}", &metadata.keywords)
         .replace("{{ root_dir }}", &root_dir);
 
     fs::write_html_file(&output_path, &final_html)?;
@@ -231,6 +233,7 @@ fn compile_file(
         title,
         url,
         date: metadata.date,
+        description: metadata.description,
         pinned: metadata.pinned,
     })
 }

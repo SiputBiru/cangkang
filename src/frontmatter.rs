@@ -1,16 +1,12 @@
 use crate::error::CangkangError;
-
-#[derive(Debug, Default)]
-pub struct PageMetadata {
-    pub title: String,
-    pub date: String,
-    pub pinned: bool,
-}
+use crate::models::PageMetadata;
 
 pub fn parse(content: &str) -> Result<(PageMetadata, &str), CangkangError> {
     let mut metadata = PageMetadata {
         title: "Untitled".to_string(),
         date: "".to_string(),
+        description: "".to_string(),
+        keywords: "".to_string(),
         pinned: false,
     };
 
@@ -29,6 +25,12 @@ pub fn parse(content: &str) -> Result<(PageMetadata, &str), CangkangError> {
             }
             if let Some(d) = extract_json_value(json_str, "date") {
                 metadata.date = d;
+            }
+            if let Some(desc) = extract_json_value(json_str, "description") {
+                metadata.description = desc;
+            }
+            if let Some(k) = extract_json_value(json_str, "keywords") {
+                metadata.keywords = k;
             }
 
             metadata.pinned = extract_boolean_value(json_str, "pinned");

@@ -5,7 +5,9 @@ mod fs;
 mod html;
 mod lexer;
 mod logger;
+mod models;
 mod parser;
+mod seo;
 
 fn main() {
     if let Err(e) = compiler::build_site() {
