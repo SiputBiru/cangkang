@@ -1,0 +1,29 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Added
+- Dedicated color-coded logger in `src/logger.rs` with `log_info`, `log_success`, `log_warn`, and `log_error` macros.
+- Support for bold text in the logger and file path highlighting during compilation.
+- Context-aware error handling in `src/error.rs` with `IoContext` trait to attach file paths to IO errors.
+- Enhanced error reporting in `src/fs.rs`, `src/compiler.rs`, and `src/frontmatter.rs`.
+- `GEMINI.md` for project context and standards.
+
+## [0.1.0] - 2026-03-27
+
+### Added
+- MIT License.
+- Docker and Nginx support for deployment.
+- Pinned posts support and date-based sorting.
+- Callout support (WARN, INFO) using enums.
+- Table support in Markdown.
+- Footnote and sidenote support.
+- Image support (local and remote).
+- Initial project structure with custom Markdown lexer/parser.
+
+### Fixed
+- Improved routing and link behavior (opening in new tabs).
+- Optimized Docker builder image.
+- Removed unused formatting and simplified internal compiler logic.

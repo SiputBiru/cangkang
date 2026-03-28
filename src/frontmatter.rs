@@ -36,11 +36,9 @@ pub fn parse(content: &str) -> Result<(PageMetadata, &str), CangkangError> {
             return Ok((metadata, remaining_content.trim_start()));
         } else {
             // If they forgot the closing dashes!
-            return Err(CangkangError::Parse {
-                message: "Found opening '---' for frontmatter, but no closing '---' found."
-                    .to_string(),
-                line: 1,
-            });
+            return Err(CangkangError::Frontmatter(
+                "Found opening '---' for frontmatter, but no closing '---' found.".to_string(),
+            ));
         }
     }
 

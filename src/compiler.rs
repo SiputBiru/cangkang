@@ -1,16 +1,13 @@
 use std::path::Path;
 use std::time::Instant;
 
-use crate::error::CangkangError;
+use crate::error::{CangkangError, IoContext};
 use crate::frontmatter;
 use crate::fs;
 use crate::lexer::Lexer;
+use crate::logger::{BOLD, RESET};
 use crate::parser::{Block, Document, Inline, Parser};
-
-// simple logging things
-macro_rules! log_info { ($($arg:tt)*) => { println!("[INFO] {}", format_args!($($arg)*)); } }
-macro_rules! log_success { ($($arg:tt)*) => { println!("[ OK ] {}", format_args!($($arg)*)); } }
-macro_rules! log_warn { ($($arg:tt)*) => { eprintln!("[WARN] {}", format_args!($($arg)*)); } }
+use crate::{log_info, log_success, log_warn};
 
 #[derive(Debug)]
 pub struct PageInfo {
@@ -25,12 +22,9 @@ pub fn build_site() -> Result<(), CangkangError> {
     log_info!("Starting Cangkang compiler...");
 
     let index_template_path = "templates/index_template.html";
-    let index_template = std::fs::read_to_string(index_template_path).map_err(|e| {
-        CangkangError::Template(format!(
-            "Could not read index/home template at '{}': {}",
-            index_template_path, e
-        ))
-    })?;
+    let index_template =
+        std::fs::read_to_string(index_template_path).with_ctx(index_template_path)?;
+
     if !index_template.contains("{{ content }}") {
         return Err(CangkangError::Template(
             "The index_template.html template is missing the '{{ content }}' placeholder."
@@ -39,12 +33,8 @@ pub fn build_site() -> Result<(), CangkangError> {
     }
 
     let post_template_path = "templates/post_template.html";
-    let post_template = std::fs::read_to_string(post_template_path).map_err(|e| {
-        CangkangError::Template(format!(
-            "Could not read post template at '{}': {}",
-            post_template_path, e
-        ))
-    })?;
+    let post_template = std::fs::read_to_string(post_template_path).with_ctx(post_template_path)?;
+
     if !post_template.contains("{{ content }}") {
         return Err(CangkangError::Template(
             "The post_template.html template is missing the '{{ content }}' placeholder."
@@ -56,10 +46,13 @@ pub fn build_site() -> Result<(), CangkangError> {
     let dist_dir = Path::new("dist");
 
     if !content_dir.exists() {
-        return Err(CangkangError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "The 'content' directory does not exist.",
-        )));
+        return Err(CangkangError::Io(
+            "content".to_string(),
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "The 'content' directory does not exist.",
+            ),
+        ));
     }
 
     let public_dir = Path::new("public");
@@ -155,9 +148,10 @@ fn process_directory(
     template: &str,
 ) -> Result<Vec<PageInfo>, CangkangError> {
     let mut pages = Vec::new();
-    let entries = std::fs::read_dir(dir)?;
+    let entries = std::fs::read_dir(dir).with_ctx(dir.to_string_lossy())?;
 
-    for entry in entries.filter_map(Result::ok) {
+    for entry in entries {
+        let entry = entry.with_ctx(dir.to_string_lossy())?;
         let path = entry.path();
 
         if path.is_dir() {
@@ -187,7 +181,7 @@ fn compile_file(
     base_dist_dir: &Path,
     template: &str,
 ) -> Result<PageInfo, CangkangError> {
-    log_info!("Compiling: {}", input_path.display());
+    log_info!("Compiling: {}{}{}", BOLD, input_path.display(), RESET);
 
     let raw_content = fs::read_markdown_file(input_path)?;
     let (metadata, md_content) = frontmatter::parse(&raw_content)?;
