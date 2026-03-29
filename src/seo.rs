@@ -1,9 +1,9 @@
-use std::path::Path;
 use crate::error::{CangkangError, IoContext};
-use crate::models::PageInfo;
 use crate::log_success;
+use crate::models::PageInfo;
+use std::path::Path;
 
-pub const BASE_URL: &str = "https://siputbiru.me";
+pub const BASE_URL: &str = "https://radityamahatma.my.id";
 
 pub fn generate_assets(pages: &[PageInfo], dist_dir: &Path) -> Result<(), CangkangError> {
     build_sitemap(pages, dist_dir)?;
