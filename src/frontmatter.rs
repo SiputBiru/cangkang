@@ -8,6 +8,7 @@ pub fn parse(content: &str) -> Result<(PageMetadata, &str), CangkangError> {
         description: "".to_string(),
         keywords: "".to_string(),
         pinned: false,
+        draft: true,
     };
 
     // Check if the file starts with the frontmatter dashes
@@ -33,7 +34,8 @@ pub fn parse(content: &str) -> Result<(PageMetadata, &str), CangkangError> {
                 metadata.keywords = k;
             }
 
-            metadata.pinned = extract_boolean_value(json_str, "pinned");
+            metadata.pinned = extract_boolean_value(json_str, "pinned").unwrap_or(false);
+            metadata.draft = extract_boolean_value(json_str, "draft").unwrap_or(true);
 
             return Ok((metadata, remaining_content.trim_start()));
         } else {
@@ -68,7 +70,7 @@ fn extract_json_value(json_str: &str, key: &str) -> Option<String> {
     Some(value_area[..end_quote].to_string())
 }
 
-fn extract_boolean_value(json_str: &str, key: &str) -> bool {
+fn extract_boolean_value(json_str: &str, key: &str) -> Option<bool> {
     let quoted_key = format!("\"{}\"", key);
 
     json_str
@@ -82,5 +84,38 @@ fn extract_boolean_value(json_str: &str, key: &str) -> bool {
                 .unwrap_or(search_area.len());
             search_area[..end_idx].trim() == "true"
         })
-        .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_default_draft() {
+        let content = "---\n{\"title\": \"Test\"}\n---\nContent";
+        let (metadata, _) = parse(content).unwrap();
+        assert!(metadata.draft);
+    }
+
+    #[test]
+    fn test_parse_explicit_false_draft() {
+        let content = "---\n{\"title\": \"Test\", \"draft\": false}\n---\nContent";
+        let (metadata, _) = parse(content).unwrap();
+        assert!(!metadata.draft);
+    }
+
+    #[test]
+    fn test_parse_explicit_true_draft() {
+        let content = "---\n{\"title\": \"Test\", \"draft\": true}\n---\nContent";
+        let (metadata, _) = parse(content).unwrap();
+        assert!(metadata.draft);
+    }
+
+    #[test]
+    fn test_parse_no_frontmatter() {
+        let content = "Just content";
+        let (metadata, _) = parse(content).unwrap();
+        assert!(metadata.draft); // Default metadata has draft: true
+        assert_eq!(metadata.title, "Untitled");
+    }
 }

@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Draft support for blog posts:
+    - Posts are now considered drafts by default unless `"draft": false` is explicitly set in frontmatter.
+    - Drafts are excluded from compilation and index listings.
+    - Special handling for `index.md` and `404.md` to ensure they are always compiled.
 - SEO and Discoverability features:
     - Automatic `sitemap.xml` generation during build.
     - RSS 2.0 feed (`index.xml`) generation for blog posts.

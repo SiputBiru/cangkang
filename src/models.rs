@@ -5,6 +5,7 @@ pub struct PageMetadata {
     pub description: String,
     pub keywords: String,
     pub pinned: bool,
+    pub draft: bool,
 }
 
 #[derive(Debug)]

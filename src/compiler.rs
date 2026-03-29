@@ -164,13 +164,16 @@ fn process_directory(
 
             if file_stem == Some("index") || file_stem == Some("404") {
                 if file_stem == Some("404") {
-                    let _ = compile_file(&path, base_content_dir, base_dist_dir, template)?;
+                    let _ = compile_file(&path, base_content_dir, base_dist_dir, template, true)?;
                 }
                 continue;
             }
 
-            let page_info = compile_file(&path, base_content_dir, base_dist_dir, template)?;
-            pages.push(page_info);
+            if let Some(page_info) =
+                compile_file(&path, base_content_dir, base_dist_dir, template, false)?
+            {
+                pages.push(page_info);
+            }
         }
     }
     Ok(pages)
@@ -181,11 +184,16 @@ fn compile_file(
     base_content_dir: &Path,
     base_dist_dir: &Path,
     template: &str,
-) -> Result<PageInfo, CangkangError> {
-    log_info!("Compiling: {}{}{}", BOLD, input_path.display(), RESET);
-
+    force_compile: bool,
+) -> Result<Option<PageInfo>, CangkangError> {
     let raw_content = fs::read_markdown_file(input_path)?;
     let (metadata, md_content) = frontmatter::parse(&raw_content)?;
+
+    if metadata.draft && !force_compile {
+        return Ok(None);
+    }
+
+    log_info!("Compiling: {}{}{}", BOLD, input_path.display(), RESET);
 
     let lexer = Lexer::new(md_content);
     let mut parser = Parser::new(lexer);
@@ -229,13 +237,13 @@ fn compile_file(
 
     fs::write_html_file(&output_path, &final_html)?;
 
-    Ok(PageInfo {
+    Ok(Some(PageInfo {
         title,
         url,
         date: metadata.date,
         description: metadata.description,
         pinned: metadata.pinned,
-    })
+    }))
 }
 
 fn extract_title(doc: &Document) -> String {
