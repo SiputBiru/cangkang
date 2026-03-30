@@ -25,12 +25,12 @@ pub fn build_site() -> Result<(), CangkangError> {
         ));
     }
 
-    let post_template_path = "templates/post_template.html";
-    let post_template = std::fs::read_to_string(post_template_path).with_ctx(post_template_path)?;
+    let note_template_path = "templates/note_template.html";
+    let note_template = std::fs::read_to_string(note_template_path).with_ctx(note_template_path)?;
 
-    if !post_template.contains("{{ content }}") {
+    if !note_template.contains("{{ content }}") {
         return Err(CangkangError::Template(
-            "The post_template.html template is missing the '{{ content }}' placeholder."
+            "The note_template.html template is missing the '{{ content }}' placeholder."
                 .to_string(),
         ));
     }
@@ -56,7 +56,7 @@ pub fn build_site() -> Result<(), CangkangError> {
         }
     }
 
-    let mut all_pages = process_directory(content_dir, content_dir, dist_dir, &post_template)?;
+    let mut all_pages = process_directory(content_dir, content_dir, dist_dir, &note_template)?;
     all_pages.sort_by(|a, b| (b.pinned, &b.date).cmp(&(a.pinned, &a.date)));
 
     build_index(&all_pages, dist_dir, &index_template)?;
