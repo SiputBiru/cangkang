@@ -1,5 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -71,6 +69,34 @@
         }
 
         pre code { padding: 0; background-color: transparent; border-radius: 0; }
+
+        /* --- Dropdown Code Block --- */
+        details.dropdown-code {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            background-color: var(--code-bg);
+        }
+
+        details.dropdown-code summary {
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-color);
+            user-select: none;
+            outline: none;
+        }
+
+        details.dropdown-code summary:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        details.dropdown-code pre {
+            margin: 0;
+            border: none;
+            border-top: 1px solid var(--border-color);
+            border-radius: 0 0 6px 6px;
+        }
 
         /* --- Media --- */
         main img {

@@ -50,6 +50,26 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
                 )
             }
         }
+        Block::DropdownCode {
+            title,
+            language,
+            code,
+        } => {
+            let escaped_code = escape_html(code);
+            let code_html = if language.is_empty() {
+                format!("<pre><code>{}</code></pre>", escaped_code)
+            } else {
+                format!(
+                    "<pre><code class=\"language-{}\">{}</code></pre>",
+                    language, escaped_code
+                )
+            };
+            format!(
+                "<details class=\"dropdown-code\">\n  <summary>{}</summary>\n  {}\n</details>",
+                escape_html(title),
+                code_html
+            )
+        }
         Block::List(items) => {
             let mut html = String::from("<ul>\n");
             for (indent, item) in items {

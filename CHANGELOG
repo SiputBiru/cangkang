@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Dropdown code blocks using `+++` fence, supporting optional language and title (e.g., `+++rust [My Title]`).
+- Native HTML `<details>` and `<summary>` tags for dropdowns.
+- Custom CSS styling for dropdown code blocks.
 
 ### Added
 - Draft support for blog posts:

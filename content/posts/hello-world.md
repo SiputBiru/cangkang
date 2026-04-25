@@ -2,7 +2,8 @@
 {
     "title": "Welcome to Cangkang!",
     "date": "2026-03-25",
-    "description": "My first test post."
+    "description": "My first test post.",
+    "draft": false
 }
 ---
 
@@ -58,3 +59,37 @@ Table:
 | Tables | Yes | *Magic* |
 
 [^1]: This is the footnote text! When we compile this, Cangkang will grab this text and turn it into a beautiful, interactive margin note.
+
+### Testing Code Dropdowns
+
+This is a regular code block:
+
+```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+This is a dropdown code block with a title:
+
++++rust [Main Function]
+fn main() {
+    println!("Hello from the dropdown!");
+}
++++
+
+This is a dropdown code block without a title:
+
++++javascript
+console.log("No title here");
++++
+
+This is a dropdown code block with multiple +++ inside (it should handle it):
+
++++++text [Nested Plus Test]
+Some text
+++++
+More pluses
+++++
+Back to three
++++++

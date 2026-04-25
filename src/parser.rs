@@ -38,6 +38,11 @@ pub enum Block {
         language: String,
         code: String,
     },
+    DropdownCode {
+        title: String,
+        language: String,
+        code: String,
+    },
     FootnoteDef {
         id: String,
         content: Vec<Inline>,
@@ -367,6 +372,96 @@ impl Parser {
         })
     }
 
+    fn parse_dropdown_code_block(&mut self, fence_length: u8) -> Result<Block, CangkangError> {
+        self.new_token(); // Consume the opening +++
+
+        // Grab the optional language and title (e.g., "rust [My Title]")
+        let mut info = String::new();
+        while self.current_token != Token::Newline && self.current_token != Token::Eof {
+            if let Token::Text(ref text) = self.current_token {
+                info.push_str(text);
+            } else if self.current_token == Token::BracketLeft {
+                info.push('[');
+            } else if self.current_token == Token::BracketRight {
+                info.push(']');
+            }
+            self.new_token();
+        }
+
+        if self.current_token == Token::Newline {
+            self.new_token();
+        }
+
+        // Parse language and title from info
+        let (language, mut title) = if let Some(bracket_start) = info.find('[') {
+            let lang = info[..bracket_start].trim().to_string();
+            let t = if let Some(bracket_end) = info.find(']') {
+                info[bracket_start + 1..bracket_end].trim().to_string()
+            } else {
+                info[bracket_start + 1..].trim().to_string()
+            };
+            (lang, t)
+        } else {
+            (info.trim().to_string(), String::new())
+        };
+
+        if title.is_empty() {
+            title = "Click to expand code".to_string();
+        }
+
+        // Grab all the raw code inside the block
+        let mut code = String::new();
+        loop {
+            if self.current_token == Token::Eof {
+                break;
+            }
+
+            // Check if we hit the closing fence
+            if let Token::Plus(n) = self.current_token
+                && n >= fence_length
+            {
+                self.new_token(); // Consume closing +++
+                break;
+            }
+
+            match &self.current_token {
+                Token::Text(t) => code.push_str(t),
+                Token::Newline => code.push('\n'),
+                Token::Asterisk => code.push('*'),
+                Token::BracketLeft => code.push('['),
+                Token::BracketRight => code.push(']'),
+                Token::ParenLeft => code.push('('),
+                Token::ParenRight => code.push(')'),
+                Token::Bang => code.push('!'),
+                Token::Colon => code.push(':'),
+                Token::Caret => code.push('^'),
+                Token::HeadingMarker(n) => {
+                    for _ in 0..*n {
+                        code.push('#');
+                    }
+                }
+                Token::BackTick(n) => {
+                    for _ in 0..*n {
+                        code.push('`');
+                    }
+                }
+                Token::Plus(n) => {
+                    for _ in 0..*n {
+                        code.push('+');
+                    }
+                }
+                _ => {}
+            }
+            self.new_token();
+        }
+
+        Ok(Block::DropdownCode {
+            title,
+            language,
+            code,
+        })
+    }
+
     pub fn parse_document(&mut self) -> Result<Document, CangkangError> {
         let mut document = Document { blocks: Vec::new() };
 
@@ -379,6 +474,7 @@ impl Parser {
             let block = match self.current_token {
                 Token::HeadingMarker(_) => self.parse_heading()?,
                 Token::BackTick(n) if n >= 3 => self.parse_code_block(n)?,
+                Token::Plus(n) if n >= 3 => self.parse_dropdown_code_block(n)?,
                 Token::BracketLeft if self.peek_token == Token::Caret => {
                     self.parse_footnote_def()?
                 }
@@ -778,6 +874,25 @@ mod tests {
             Block::Code {
                 language: "rust".to_string(),
                 code: "let x = 5;\n".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_dropdown_code() {
+        let input = "+++rust [My Code]\nprintln!(\"hi\");\n+++\n";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let doc = parser.parse_document().expect("Failed to parse document");
+
+        assert_eq!(doc.blocks.len(), 1);
+
+        assert_eq!(
+            doc.blocks[0],
+            Block::DropdownCode {
+                title: "My Code".to_string(),
+                language: "rust".to_string(),
+                code: "println!(\"hi\");\n".to_string(),
             }
         );
     }
