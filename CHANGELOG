@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Fixed list parsing to support lists with blank lines between items, preventing numbering resets in ordered lists.
 - Dropdown code blocks using `+++` fence, supporting optional language and title (e.g., `+++rust [My Title]`).
 - Native HTML `<details>` and `<summary>` tags for dropdowns.
 - Custom CSS styling for dropdown code blocks.

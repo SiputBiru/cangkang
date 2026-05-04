@@ -578,6 +578,11 @@ impl Parser {
             if self.current_token == Token::Newline {
                 self.new_token();
             }
+
+            // Consume any extra newlines between list items
+            while self.current_token == Token::Newline {
+                self.new_token();
+            }
         }
 
         Ok(Block::List(items))
@@ -629,6 +634,11 @@ impl Parser {
             items.push((indent, content));
 
             if self.current_token == Token::Newline {
+                self.new_token();
+            }
+
+            // Consume any extra newlines between list items
+            while self.current_token == Token::Newline {
                 self.new_token();
             }
         }
@@ -922,8 +932,37 @@ mod tests {
             doc.blocks[1],
             Block::FootnoteDef {
                 id: "1".to_string(),
-                content: vec![Inline::Text(" The actual note text".to_string())]
+                content: vec![Inline::Text(" The actual note text".to_string())],
             }
         );
+    }
+
+    #[test]
+    fn test_parse_lists_with_blank_lines() {
+        let input = "1. First item\n\n2. Second item\n\n* Unordered 1\n\n* Unordered 2\n";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let doc = parser.parse_document().expect("Failed to parse document");
+
+        assert_eq!(doc.blocks.len(), 2);
+
+        // Check Ordered List
+        if let Block::OrderedList(items) = &doc.blocks[0] {
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0].1, vec![Inline::Text("First item".to_string())]);
+            assert_eq!(items[1].1, vec![Inline::Text("Second item".to_string())]);
+        } else {
+            panic!("Expected OrderedList, got {:?}", doc.blocks[0]);
+        }
+
+        // Check Unordered List
+        if let Block::List(items) = &doc.blocks[1] {
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0].1, vec![Inline::Text("Unordered 1".to_string())]);
+            assert_eq!(items[1].1, vec![Inline::Text("Unordered 2".to_string())]);
+        } else {
+            panic!("Expected List, got {:?}", doc.blocks[1]);
+        }
     }
 }
