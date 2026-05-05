@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Fixed bug where colons and other special characters inside inline code were rendered as their token names (e.g., `::` becoming `ColonColon`).
 - Fixed list parsing to support lists with blank lines between items, preventing numbering resets in ordered lists.
 - Dropdown code blocks using `+++` fence, supporting optional language and title (e.g., `+++rust [My Title]`).
 - Native HTML `<details>` and `<summary>` tags for dropdowns.

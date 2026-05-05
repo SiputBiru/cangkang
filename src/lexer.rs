@@ -16,6 +16,27 @@ pub enum Token {
     Eof,
 }
 
+impl Token {
+    pub fn as_str(&self) -> String {
+        match self {
+            Token::HeadingMarker(n) => "#".repeat(*n as usize),
+            Token::Text(s) => s.clone(),
+            Token::Newline => "\n".to_string(),
+            Token::Asterisk => "*".to_string(),
+            Token::BracketLeft => "[".to_string(),
+            Token::BracketRight => "]".to_string(),
+            Token::ParenLeft => "(".to_string(),
+            Token::ParenRight => ")".to_string(),
+            Token::Bang => "!".to_string(),
+            Token::BackTick(n) => "`".repeat(*n as usize),
+            Token::Plus(n) => "+".repeat(*n as usize),
+            Token::Caret => "^".to_string(),
+            Token::Colon => ":".to_string(),
+            Token::Eof => "".to_string(),
+        }
+    }
+}
+
 pub struct Lexer {
     input: Vec<char>,
     pub position: usize, // Current position in input (points to current char)

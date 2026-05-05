@@ -228,27 +228,13 @@ impl Parser {
                         }
 
                         // Just append the raw text of whatever is inside
-                        if let Token::Text(ref t) = self.current_token {
-                            code.push_str(t);
-                        } else {
-                            // Quick hack to convert other formatting tokens back to text if they are inside code
-                            code.push_str(&format!("{:?}", self.current_token)); // can refined this later
-                        }
+                        code.push_str(&self.current_token.as_str());
                         self.new_token();
                     }
                     inlines.push(Inline::Code(code));
                 }
                 _ => {
-                    let text = match &self.current_token {
-                        Token::Colon => ":".to_string(),
-                        Token::Caret => "^".to_string(),
-                        Token::ParenLeft => "(".to_string(),
-                        Token::ParenRight => ")".to_string(),
-                        Token::BracketRight => "]".to_string(),
-                        Token::Bang => "!".to_string(),
-                        _ => format!("{:?}", self.current_token),
-                    };
-                    inlines.push(Inline::Text(text));
+                    inlines.push(Inline::Text(self.current_token.as_str()));
                     self.new_token();
                 }
             }
@@ -964,5 +950,28 @@ mod tests {
         } else {
             panic!("Expected List, got {:?}", doc.blocks[1]);
         }
+    }
+
+    #[test]
+    fn test_parse_inline_code_with_special_chars() {
+        let input = "Check `fmt::Display`, `[brackets]`, and `!bang`.\n";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let doc = parser.parse_document().expect("Failed to parse document");
+
+        assert_eq!(doc.blocks.len(), 1);
+
+        assert_eq!(
+            doc.blocks[0],
+            Block::Paragraph(vec![
+                Inline::Text("Check ".to_string()),
+                Inline::Code("fmt::Display".to_string()),
+                Inline::Text(", ".to_string()),
+                Inline::Code("[brackets]".to_string()),
+                Inline::Text(", and ".to_string()),
+                Inline::Code("!bang".to_string()),
+                Inline::Text(".".to_string()),
+            ])
+        );
     }
 }
