@@ -1,6 +1,9 @@
 use crate::parser::{Block, CalloutKind, Document, Inline};
 use std::collections::HashMap;
 
+/// A list block in a nesting chain: the items slice and whether it's ordered.
+type ListChainItem<'a> = (&'a [(usize, Vec<Inline>)], bool);
+
 pub fn generate_html(document: &Document) -> String {
     let mut html = String::new();
 
@@ -13,17 +16,118 @@ pub fn generate_html(document: &Document) -> String {
     }
 
     // PASS 2: Render everything else, passing the footnote map down
-    for block in &document.blocks {
+    let mut i = 0;
+    while i < document.blocks.len() {
+        let block = &document.blocks[i];
         // Skip rendering the definitions at the bottom
         if let Block::FootnoteDef { .. } = block {
+            i += 1;
             continue;
         }
 
-        html.push_str(&render_block(block, &footnotes));
-        html.push('\n');
+        // Detect chains of adjacent mixed-type lists with increasing
+        // indentation and render them as nested structures.
+        let did_nest = render_list_chain(i, &document.blocks, &footnotes)
+            .map(|(rendered, consumed)| {
+                html.push_str(&rendered);
+                html.push('\n');
+                i += consumed;
+            })
+            .is_some();
+
+        if !did_nest {
+            html.push_str(&render_block(block, &footnotes));
+            html.push('\n');
+            i += 1;
+        }
     }
 
     html
+}
+
+/// Collect a chain of consecutive list blocks of **alternating** types
+/// (ordered ↔ unordered) where each successive block has a positive indent,
+/// indicating it should nest inside the previous block's last `<li>`.
+///
+/// Returns `None` if the starting block isn't a list or if no nesting
+/// partner is found. Otherwise returns the rendered HTML and the number
+/// of blocks consumed.
+fn render_list_chain(
+    start_idx: usize,
+    blocks: &[Block],
+    footnotes: &std::collections::HashMap<String, String>,
+) -> Option<(String, usize)> {
+    // Collect chain: (items, is_ordered)
+    let mut chain: Vec<ListChainItem<'_>> = Vec::new();
+
+    for offset in 0.. {
+        let idx = start_idx + offset;
+        if idx >= blocks.len() {
+            break;
+        }
+        match &blocks[idx] {
+            Block::OrderedList(items) if !items.is_empty() => {
+                if offset == 0 || !chain.last().unwrap().1 {
+                    if offset > 0 && items[0].0 == 0 {
+                        break;
+                    }
+                    chain.push((items, true));
+                } else {
+                    break;
+                }
+            }
+            Block::List(items) if !items.is_empty() => {
+                if offset == 0 || chain.last().unwrap().1 {
+                    if offset > 0 && items[0].0 == 0 {
+                        break;
+                    }
+                    chain.push((items, false));
+                } else {
+                    break;
+                }
+            }
+            _ => break,
+        }
+    }
+
+    if chain.len() < 2 {
+        return None;
+    }
+
+    // Build from the inside out: start with the innermost list,
+    // then wrap each outer list around it.
+    let (innermost, innermost_ordered) = chain.last().copied().unwrap();
+    let inner_tag = if innermost_ordered { "ol" } else { "ul" };
+    let mut result = render_nested_list_with_tag(innermost, inner_tag, footnotes);
+
+    for i in (0..chain.len() - 1).rev() {
+        let (outer, outer_ordered) = chain[i];
+        let outer_tag = if outer_ordered { "ol" } else { "ul" };
+        let n = outer.len();
+
+        let mut outer_html = String::new();
+        outer_html.push_str(&format!("<{}>\n", outer_tag));
+
+        for (idx, (_, content)) in outer.iter().enumerate() {
+            let is_last = idx == n - 1;
+            outer_html.push_str("<li>");
+            outer_html.push_str(&render_inlines(content, footnotes));
+
+            if is_last {
+                outer_html.push('\n');
+                outer_html.push_str(&result);
+                outer_html.push('\n');
+                outer_html.push_str("</li>\n");
+            } else {
+                outer_html.push_str("</li>\n");
+            }
+        }
+
+        outer_html.push_str(&format!("</{}>", outer_tag));
+        result = outer_html;
+    }
+
+    Some((result, chain.len()))
 }
 
 fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
@@ -150,6 +254,17 @@ fn render_nested_list(
     footnotes: &HashMap<String, String>,
 ) -> String {
     let tag = if ordered { "ol" } else { "ul" };
+    render_nested_list_with_tag(items, tag, footnotes)
+}
+
+/// Internal helper that renders a list using an explicit tag name.
+/// Used both for same-type nesting and for mixed-type nesting
+/// (e.g. an `<ul>` nested inside an `<ol>`).
+fn render_nested_list_with_tag(
+    items: &[(usize, Vec<Inline>)],
+    tag: &str,
+    footnotes: &HashMap<String, String>,
+) -> String {
     let n = items.len();
     if n == 0 {
         return String::new();
@@ -165,8 +280,8 @@ fn render_nested_list(
         while let Some(&top) = indent_stack.last() {
             if *indent < top {
                 indent_stack.pop();
-                html.push_str("</li>\n");
                 html.push_str(&format!("</{}>\n", tag));
+                html.push_str("</li>\n");
             } else {
                 break;
             }
@@ -174,7 +289,12 @@ fn render_nested_list(
 
         // Open a new list level if we're deeper than the current one
         if indent_stack.is_empty() || *indent > *indent_stack.last().unwrap() {
+            let is_nested = !indent_stack.is_empty();
             indent_stack.push(*indent);
+            if is_nested {
+                // Place nested <ol>/<ul> on a new line after the parent <li> content
+                html.push('\n');
+            }
             html.push_str(&format!("<{}>\n", tag));
         }
 
@@ -196,7 +316,7 @@ fn render_nested_list(
         html.push_str("</li>\n");
     }
     if indent_stack.pop().is_some() {
-        html.push_str(&format!("</{}>\n", tag));
+        html.push_str(&format!("</{}>", tag));
     }
 
     html
@@ -321,5 +441,202 @@ mod tests {
         let expected_html = "<p>Cangkang is fast<label for=\"sn-1\" class=\"sidenote-number-ref\">[1]</label><input type=\"checkbox\" id=\"sn-1\" class=\"margin-toggle\"/><span class=\"sidenote\"><span class=\"sidenote-number-def\" style=\"user-select: none;\">[1]</span> Written in Rust.</span>.</p>\n";
 
         assert_eq!(generated, expected_html);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Nested list rendering tests
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn test_nested_ordered_in_ordered() {
+        // Same-type nesting: ordered list with an indented sub-list inside.
+        // The sub-list items should restart numbering at 1 (via a nested <ol>).
+        let doc = Document {
+            blocks: vec![Block::OrderedList(vec![
+                (0, vec![Inline::Text("Item A".to_string())]),
+                (3, vec![Inline::Text("Nested A".to_string())]),
+                (3, vec![Inline::Text("Nested B".to_string())]),
+                (0, vec![Inline::Text("Item B".to_string())]),
+            ])],
+        };
+
+        let html = generate_html(&doc);
+
+        let expected = "\
+<ol>
+<li>Item A
+<ol>
+<li>Nested A</li>
+<li>Nested B</li>
+</ol>
+</li>
+<li>Item B</li>
+</ol>\n";
+
+        assert_eq!(html, expected);
+    }
+
+    #[test]
+    fn test_nested_unordered_in_unordered() {
+        // Same-type nesting: unordered list with a deeper indented sub-list.
+        let doc = Document {
+            blocks: vec![Block::List(vec![
+                (0, vec![Inline::Text("Bullet A".to_string())]),
+                (3, vec![Inline::Text("Nested A".to_string())]),
+                (3, vec![Inline::Text("Nested B".to_string())]),
+                (0, vec![Inline::Text("Bullet B".to_string())]),
+            ])],
+        };
+
+        let html = generate_html(&doc);
+
+        let expected = "\
+<ul>
+<li>Bullet A
+<ul>
+<li>Nested A</li>
+<li>Nested B</li>
+</ul>
+</li>
+<li>Bullet B</li>
+</ul>\n";
+
+        assert_eq!(html, expected);
+    }
+
+    #[test]
+    fn test_nested_unordered_in_ordered() {
+        // Mixed-type nesting: ordered list followed by an indented unordered list.
+        // The unordered list should be nested inside the last <li> of the ordered list.
+        let doc = Document {
+            blocks: vec![
+                Block::OrderedList(vec![(0, vec![Inline::Text("Main item".to_string())])]),
+                Block::List(vec![
+                    (3, vec![Inline::Text("Nested bullet".to_string())]),
+                    (3, vec![Inline::Text("Another nested bullet".to_string())]),
+                ]),
+            ],
+        };
+
+        let html = generate_html(&doc);
+
+        let expected = "\
+<ol>
+<li>Main item
+<ul>
+<li>Nested bullet</li>
+<li>Another nested bullet</li>
+</ul>
+</li>
+</ol>\n";
+
+        assert_eq!(html, expected);
+    }
+
+    #[test]
+    fn test_nested_ordered_in_unordered() {
+        // Mixed-type nesting: unordered list followed by an indented ordered list.
+        let doc = Document {
+            blocks: vec![
+                Block::List(vec![(0, vec![Inline::Text("Main bullet".to_string())])]),
+                Block::OrderedList(vec![
+                    (3, vec![Inline::Text("Nested one".to_string())]),
+                    (3, vec![Inline::Text("Nested two".to_string())]),
+                ]),
+            ],
+        };
+
+        let html = generate_html(&doc);
+
+        let expected = "\
+<ul>
+<li>Main bullet
+<ol>
+<li>Nested one</li>
+<li>Nested two</li>
+</ol>
+</li>
+</ul>\n";
+
+        assert_eq!(html, expected);
+    }
+
+    #[test]
+    fn test_nested_mixed_not_nested_when_indent_zero() {
+        // When the second list has indent 0 (not nested), they should remain
+        // as sibling blocks, not nested.
+        let doc = Document {
+            blocks: vec![
+                Block::OrderedList(vec![(0, vec![Inline::Text("First".to_string())])]),
+                Block::List(vec![(0, vec![Inline::Text("Sibling".to_string())])]),
+            ],
+        };
+
+        let html = generate_html(&doc);
+
+        let expected = "\
+<ol>
+<li>First</li>
+</ol>
+<ul>
+<li>Sibling</li>
+</ul>\n";
+
+        assert_eq!(html, expected);
+    }
+
+    #[test]
+    fn test_nested_multi_level_mixed() {
+        // Deep nesting: ordered → unordered → ordered, each deeper than the last.
+        let doc = Document {
+            blocks: vec![
+                Block::OrderedList(vec![(0, vec![Inline::Text("Top".to_string())])]),
+                Block::List(vec![(3, vec![Inline::Text("Middle".to_string())])]),
+                Block::OrderedList(vec![(6, vec![Inline::Text("Deep".to_string())])]),
+            ],
+        };
+
+        let html = generate_html(&doc);
+
+        let expected = "\
+<ol>
+<li>Top
+<ul>
+<li>Middle
+<ol>
+<li>Deep</li>
+</ol>
+</li>
+</ul>
+</li>
+</ol>\n";
+
+        assert_eq!(html, expected);
+    }
+
+    #[test]
+    fn test_nested_adjacent_sibling_blocks_after_nest() {
+        // A non-nested block after a nested pair should render normally.
+        let doc = Document {
+            blocks: vec![
+                Block::OrderedList(vec![(0, vec![Inline::Text("Item".to_string())])]),
+                Block::List(vec![(3, vec![Inline::Text("Sub".to_string())])]),
+                Block::Paragraph(vec![Inline::Text("After list.".to_string())]),
+            ],
+        };
+
+        let html = generate_html(&doc);
+
+        let expected = "\
+<ol>
+<li>Item
+<ul>
+<li>Sub</li>
+</ul>
+</li>
+</ol>
+<p>After list.</p>\n";
+
+        assert_eq!(html, expected);
     }
 }

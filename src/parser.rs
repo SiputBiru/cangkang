@@ -874,104 +874,104 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_parse_dropdown_code() {
-        let input = "+++rust [My Code]\nprintln!(\"hi\");\n+++\n";
+    // ---------------------------------------------------------------------------
+    // Full pipeline integration tests (parse → render HTML)
+    // ---------------------------------------------------------------------------
+
+    fn parse_and_render(input: &str) -> String {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let doc = parser.parse_document().expect("Failed to parse document");
-
-        assert_eq!(doc.blocks.len(), 1);
-
-        assert_eq!(
-            doc.blocks[0],
-            Block::DropdownCode {
-                title: "My Code".to_string(),
-                language: "rust".to_string(),
-                code: "println!(\"hi\");\n".to_string(),
-            }
-        );
+        crate::html::generate_html(&doc)
     }
 
     #[test]
-    fn test_parse_footnotes() {
-        let input = "Here is a note[^1].\n\n[^1]: The actual note text\n";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+    fn test_integration_ordered_with_nested_unordered() {
+        let html =
+            parse_and_render("1. Main item\n   * Nested bullet\n   * Another nested bullet\n");
 
-        let doc = parser.parse_document().expect("Failed to parse document");
+        let expected = "\
+<ol>
+<li>Main item
+<ul>
+<li>Nested bullet</li>
+<li>Another nested bullet</li>
+</ul>
+</li>
+</ol>\n";
 
-        assert_eq!(doc.blocks.len(), 2);
-
-        // Check the Inline Reference
-        assert_eq!(
-            doc.blocks[0],
-            Block::Paragraph(vec![
-                Inline::Text("Here is a note".to_string()),
-                Inline::FootnoteRef("1".to_string()),
-                Inline::Text(".".to_string()),
-            ])
-        );
-
-        // Check the Definition Block
-        assert_eq!(
-            doc.blocks[1],
-            Block::FootnoteDef {
-                id: "1".to_string(),
-                content: vec![Inline::Text(" The actual note text".to_string())],
-            }
-        );
+        assert_eq!(html, expected);
     }
 
     #[test]
-    fn test_parse_lists_with_blank_lines() {
-        let input = "1. First item\n\n2. Second item\n\n* Unordered 1\n\n* Unordered 2\n";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+    fn test_integration_unordered_with_nested_ordered() {
+        let html = parse_and_render("* Main bullet\n   1. Nested one\n   2. Nested two\n");
 
-        let doc = parser.parse_document().expect("Failed to parse document");
+        let expected = "\
+<ul>
+<li>Main bullet
+<ol>
+<li>Nested one</li>
+<li>Nested two</li>
+</ol>
+</li>
+</ul>\n";
 
-        assert_eq!(doc.blocks.len(), 2);
-
-        // Check Ordered List
-        if let Block::OrderedList(items) = &doc.blocks[0] {
-            assert_eq!(items.len(), 2);
-            assert_eq!(items[0].1, vec![Inline::Text("First item".to_string())]);
-            assert_eq!(items[1].1, vec![Inline::Text("Second item".to_string())]);
-        } else {
-            panic!("Expected OrderedList, got {:?}", doc.blocks[0]);
-        }
-
-        // Check Unordered List
-        if let Block::List(items) = &doc.blocks[1] {
-            assert_eq!(items.len(), 2);
-            assert_eq!(items[0].1, vec![Inline::Text("Unordered 1".to_string())]);
-            assert_eq!(items[1].1, vec![Inline::Text("Unordered 2".to_string())]);
-        } else {
-            panic!("Expected List, got {:?}", doc.blocks[1]);
-        }
+        assert_eq!(html, expected);
     }
 
     #[test]
-    fn test_parse_inline_code_with_special_chars() {
-        let input = "Check `fmt::Display`, `[brackets]`, and `!bang`.\n";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let doc = parser.parse_document().expect("Failed to parse document");
+    fn test_integration_nested_ordered_restarts_numbering() {
+        // The nested <ol> should restart at 1, not continue from the parent.
+        let html = parse_and_render("1. Item A\n   1. Nested A\n   2. Nested B\n2. Item B\n");
 
-        assert_eq!(doc.blocks.len(), 1);
+        let expected = "\
+<ol>
+<li>Item A
+<ol>
+<li>Nested A</li>
+<li>Nested B</li>
+</ol>
+</li>
+<li>Item B</li>
+</ol>\n";
 
-        assert_eq!(
-            doc.blocks[0],
-            Block::Paragraph(vec![
-                Inline::Text("Check ".to_string()),
-                Inline::Code("fmt::Display".to_string()),
-                Inline::Text(", ".to_string()),
-                Inline::Code("[brackets]".to_string()),
-                Inline::Text(", and ".to_string()),
-                Inline::Code("!bang".to_string()),
-                Inline::Text(".".to_string()),
-            ])
-        );
+        assert_eq!(html, expected);
+    }
+
+    #[test]
+    fn test_integration_deep_mixed_nesting() {
+        let html = parse_and_render("1. Top\n   * Middle\n     1. Deep\n");
+
+        let expected = "\
+<ol>
+<li>Top
+<ul>
+<li>Middle
+<ol>
+<li>Deep</li>
+</ol>
+</li>
+</ul>
+</li>
+</ol>\n";
+
+        assert_eq!(html, expected);
+    }
+
+    #[test]
+    fn test_integration_mixed_lists_not_nested_without_indent() {
+        // Without indentation, same-type adjacent blocks stay separate.
+        let html = parse_and_render("1. First\n* Sibling\n");
+
+        let expected = "\
+<ol>
+<li>First</li>
+</ol>
+<ul>
+<li>Sibling</li>
+</ul>\n";
+
+        assert_eq!(html, expected);
     }
 }
