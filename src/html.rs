@@ -70,32 +70,8 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
                 code_html
             )
         }
-        Block::List(items) => {
-            let mut html = String::from("<ul>\n");
-            for (indent, item) in items {
-                let margin = (*indent / 4) as f32 * 1.5;
-                html.push_str(&format!(
-                    "  <li style=\"margin-left: {}rem;\">{}</li>\n",
-                    margin,
-                    render_inlines(item, footnotes)
-                ));
-            }
-            html.push_str("</ul>");
-            html
-        }
-        Block::OrderedList(items) => {
-            let mut html = String::from("<ol>\n");
-            for (indent, item) in items {
-                let margin = (*indent / 4) as f32 * 1.5;
-                html.push_str(&format!(
-                    "  <li style=\"margin-left: {}rem;\">{}</li>\n",
-                    margin,
-                    render_inlines(item, footnotes)
-                ));
-            }
-            html.push_str("</ol>");
-            html
-        }
+        Block::List(items) => render_nested_list(items, false, footnotes),
+        Block::OrderedList(items) => render_nested_list(items, true, footnotes),
 
         Block::FootnoteDef { .. } => String::new(), // Handled in Pass 1
 
@@ -164,6 +140,66 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
             html
         }
     }
+}
+
+/// Render a list (ordered or unordered) with proper nested `<ol>`/`<ul>` tags
+/// based on indent levels, instead of a flat list with margin hacks.
+fn render_nested_list(
+    items: &[(usize, Vec<Inline>)],
+    ordered: bool,
+    footnotes: &HashMap<String, String>,
+) -> String {
+    let tag = if ordered { "ol" } else { "ul" };
+    let n = items.len();
+    if n == 0 {
+        return String::new();
+    }
+
+    let mut html = String::new();
+    let mut indent_stack: Vec<usize> = Vec::new();
+
+    for i in 0..n {
+        let (indent, content) = &items[i];
+
+        // Close any lists at deeper indentation levels
+        while let Some(&top) = indent_stack.last() {
+            if *indent < top {
+                indent_stack.pop();
+                html.push_str("</li>\n");
+                html.push_str(&format!("</{}>\n", tag));
+            } else {
+                break;
+            }
+        }
+
+        // Open a new list level if we're deeper than the current one
+        if indent_stack.is_empty() || *indent > *indent_stack.last().unwrap() {
+            indent_stack.push(*indent);
+            html.push_str(&format!("<{}>\n", tag));
+        }
+
+        // Render the list item content
+        html.push_str("<li>");
+        html.push_str(&render_inlines(content, footnotes));
+
+        // Close the <li> unless the next item is nested deeper inside it
+        let has_children = i + 1 < n && items[i + 1].0 > *indent;
+        if !has_children {
+            html.push_str("</li>\n");
+        }
+    }
+
+    // Close any remaining open levels (innermost to outermost)
+    while indent_stack.len() > 1 {
+        indent_stack.pop();
+        html.push_str(&format!("</{}>\n", tag));
+        html.push_str("</li>\n");
+    }
+    if indent_stack.pop().is_some() {
+        html.push_str(&format!("</{}>\n", tag));
+    }
+
+    html
 }
 
 fn render_inlines(inlines: &[Inline], footnotes: &HashMap<String, String>) -> String {
