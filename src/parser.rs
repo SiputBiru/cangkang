@@ -277,7 +277,7 @@ impl Parser {
                 Token::Colon => url.push(':'),
                 Token::Caret => url.push('^'),
                 Token::Asterisk => url.push('*'),
-                Token::Bang => text.push('!'),
+                Token::Bang => url.push('!'),
                 _ => {}
             }
             self.new_token();

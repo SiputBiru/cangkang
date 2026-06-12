@@ -51,9 +51,18 @@ pub fn parse(content: &str) -> Result<(PageMetadata, &str), CangkangError> {
 }
 
 fn extract_json_value(json_str: &str, key: &str) -> Option<String> {
-    // Wrap the key in quotes to prevent false positives (e.g., searching for "title")
+    // Wrap the key in quotes and ensure it won't match inside longer keys
+    // (e.g. "title" should not match inside "long_title")
     let quoted_key = format!("\"{}\"", key);
-    let key_idx = json_str.find(&quoted_key)?;
+
+    // Find the quoted key only when preceded by a JSON boundary character
+    let key_idx = json_str
+        .match_indices(&quoted_key)
+        .find(|(idx, _)| {
+            let before = json_str.as_bytes().get(idx.wrapping_sub(1));
+            before.map_or(true, |&b| matches!(b, b'{' | b',' | b' ' | b'\n' | b'\t' | b'\r'))
+        })
+        .map(|(idx, _)| idx)?;
 
     // Find the colon after the key
     let colon_idx = json_str[key_idx..].find(':')?;

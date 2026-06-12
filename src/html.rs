@@ -338,12 +338,16 @@ fn render_inline(inline: &Inline, footnotes: &HashMap<String, String>) -> String
         Inline::Code(code) => format!("<code>{}</code>", escape_html(code)),
         Inline::Link { text, url } => format!(
             "<a href=\"{}\" target=\"_blank\" rel=\"noopener noreferrer\">{}</a>",
-            url,
+            escape_html(url),
             escape_html(text)
         ),
         Inline::LineBreak => String::from("<br />"),
         Inline::Image { alt, url } => {
-            format!("<img src=\"{}\" alt=\"{}\" />", url, escape_html(alt))
+            format!(
+                "<img src=\"{}\" alt=\"{}\" />",
+                escape_html(url),
+                escape_html(alt)
+            )
         }
 
         // INLINE INJECTION
