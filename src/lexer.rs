@@ -39,15 +39,15 @@ impl Token {
 
 pub struct Lexer {
     input: Vec<char>,
-    pub position: usize, // Current position in input (points to current char)
-    pub read_position: usize, // Current reading position in input (after current char)
-    pub ch: char,        // Current char under examination
+    position: usize, // Current position in input (points to current char)
+    read_position: usize, // Current reading position in input (after current char)
+    ch: char,        // Current char under examination
 }
 
 impl Lexer {
     pub fn new(input: &str) -> Self {
         let mut l = Lexer {
-            input: input.chars().collect(),
+            input: input.chars().filter(|&c| c != '\r').collect(),
             position: 0,
             read_position: 0,
             ch: '\0',

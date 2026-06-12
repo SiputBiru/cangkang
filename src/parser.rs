@@ -483,7 +483,12 @@ impl Parser {
                 Token::Text(ref t)
                     if {
                         let trimmed = t.trim_start();
-                        trimmed.starts_with(|c: char| c.is_ascii_digit()) && trimmed.contains(". ")
+                        trimmed.starts_with(|c: char| c.is_ascii_digit())
+                            && trimmed
+                                .find(". ")
+                                .map_or(false, |idx| {
+                                    trimmed[..idx].chars().all(|c| c.is_ascii_digit())
+                                })
                     } =>
                 {
                     self.parse_ordered_list()?
@@ -597,7 +602,13 @@ impl Parser {
                 indent = t.len() - trimmed.len();
 
                 // Check if the trimmed part starts with a number and a dot
-                if trimmed.starts_with(|c: char| c.is_ascii_digit()) && trimmed.contains(". ") {
+                if trimmed.starts_with(|c: char| c.is_ascii_digit())
+                    && trimmed
+                        .find(". ")
+                        .map_or(false, |idx| {
+                            trimmed[..idx].chars().all(|c| c.is_ascii_digit())
+                        })
+                {
                     is_numbered = true;
                 }
             }

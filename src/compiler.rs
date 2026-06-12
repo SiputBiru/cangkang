@@ -190,6 +190,10 @@ fn compile_file(
     let (metadata, md_content) = frontmatter::parse(&raw_content)?;
 
     if metadata.draft && !force_compile {
+        log_warn!(
+            "Skipping draft: {} (set \"draft\": false to publish)",
+            input_path.display()
+        );
         return Ok(None);
     }
 
@@ -204,7 +208,17 @@ fn compile_file(
         title = extract_title(&document);
     }
 
-    let relative_path = input_path.strip_prefix(base_content_dir).unwrap();
+    let relative_path = input_path
+        .strip_prefix(base_content_dir)
+        .map_err(|_| {
+            CangkangError::Io(
+                input_path.display().to_string(),
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "file path is not under the content directory",
+                ),
+            )
+        })?;
     let depth = relative_path.components().count() - 1;
     let file_stem = input_path.file_stem().and_then(|s| s.to_str());
 
@@ -219,7 +233,17 @@ fn compile_file(
     let mut output_path = base_dist_dir.join(relative_path);
     output_path.set_extension("html");
 
-    let url_path = output_path.strip_prefix(base_dist_dir).unwrap();
+    let url_path = output_path
+        .strip_prefix(base_dist_dir)
+        .map_err(|_| {
+            CangkangError::Io(
+                output_path.display().to_string(),
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "output path is not under the dist directory",
+                ),
+            )
+        })?;
     let url = url_path
         .to_string_lossy()
         .replace("\\", "/")
