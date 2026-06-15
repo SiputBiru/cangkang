@@ -39,9 +39,9 @@ impl Token {
 
 pub struct Lexer {
     input: Vec<char>,
-    position: usize, // Current position in input (points to current char)
+    position: usize,      // Current position in input (points to current char)
     read_position: usize, // Current reading position in input (after current char)
-    ch: char,        // Current char under examination
+    ch: char,             // Current char under examination
 }
 
 impl Lexer {
@@ -65,15 +65,6 @@ impl Lexer {
         self.position = self.read_position;
         self.read_position += 1;
     }
-
-    // can be used for other things
-    // pub fn peek_char(&self) -> char {
-    //     if self.read_position >= self.input.len() {
-    //         '\0'
-    //     } else {
-    //         self.input[self.read_position]
-    //     }
-    // }
 
     pub fn next_token(&mut self) -> Token {
         match self.ch {

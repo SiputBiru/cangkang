@@ -61,7 +61,6 @@ pub fn build_site() -> Result<(), CangkangError> {
 
     build_index(&all_pages, dist_dir, &index_template)?;
 
-    // SEO Asset Generation
     crate::seo::generate_assets(&all_pages, dist_dir)?;
 
     let duration = start_time.elapsed();
@@ -82,7 +81,7 @@ fn build_index(
     let mut index_content = String::new();
 
     let index_md_path = Path::new("content/index.md");
-    let mut page_title = String::from("SiputBiru's Notes"); // Default
+    let mut page_title = String::from("SiputBiru's Notes");
     let mut page_description = String::new();
     let mut page_keywords = String::new();
 
@@ -208,17 +207,15 @@ fn compile_file(
         title = extract_title(&document);
     }
 
-    let relative_path = input_path
-        .strip_prefix(base_content_dir)
-        .map_err(|_| {
-            CangkangError::Io(
-                input_path.display().to_string(),
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "file path is not under the content directory",
-                ),
-            )
-        })?;
+    let relative_path = input_path.strip_prefix(base_content_dir).map_err(|_| {
+        CangkangError::Io(
+            input_path.display().to_string(),
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "file path is not under the content directory",
+            ),
+        )
+    })?;
     let depth = relative_path.components().count() - 1;
     let file_stem = input_path.file_stem().and_then(|s| s.to_str());
 
@@ -233,17 +230,15 @@ fn compile_file(
     let mut output_path = base_dist_dir.join(relative_path);
     output_path.set_extension("html");
 
-    let url_path = output_path
-        .strip_prefix(base_dist_dir)
-        .map_err(|_| {
-            CangkangError::Io(
-                output_path.display().to_string(),
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "output path is not under the dist directory",
-                ),
-            )
-        })?;
+    let url_path = output_path.strip_prefix(base_dist_dir).map_err(|_| {
+        CangkangError::Io(
+            output_path.display().to_string(),
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "output path is not under the dist directory",
+            ),
+        )
+    })?;
     let url = url_path
         .to_string_lossy()
         .replace("\\", "/")

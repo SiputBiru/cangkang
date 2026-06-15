@@ -3,16 +3,9 @@ use std::io;
 
 #[derive(Debug)]
 pub enum CangkangError {
-    // IO Error with option context
     Io(String, io::Error),
-
-    // Markdown parsing errors
     Parse { message: String, line: usize },
-
-    // Frontmatter syntax errors
     Frontmatter(String),
-
-    // HTML Template errors
     Template(String),
 }
 

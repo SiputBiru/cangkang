@@ -7,7 +7,6 @@ type ListChainItem<'a> = (&'a [(usize, Vec<Inline>)], bool);
 pub fn generate_html(document: &Document) -> String {
     let mut html = String::new();
 
-    // PASS 1: Collect all Footnote Definitions
     let mut footnotes = HashMap::new();
     for block in &document.blocks {
         if let Block::FootnoteDef { id, content } = block {
@@ -15,18 +14,14 @@ pub fn generate_html(document: &Document) -> String {
         }
     }
 
-    // PASS 2: Render everything else, passing the footnote map down
     let mut i = 0;
     while i < document.blocks.len() {
         let block = &document.blocks[i];
-        // Skip rendering the definitions at the bottom
         if let Block::FootnoteDef { .. } = block {
             i += 1;
             continue;
         }
 
-        // Detect chains of adjacent mixed-type lists with increasing
-        // indentation and render them as nested structures.
         let did_nest = render_list_chain(i, &document.blocks, &footnotes)
             .map(|(rendered, consumed)| {
                 html.push_str(&rendered);
@@ -57,7 +52,6 @@ fn render_list_chain(
     blocks: &[Block],
     footnotes: &std::collections::HashMap<String, String>,
 ) -> Option<(String, usize)> {
-    // Collect chain: (items, is_ordered)
     let mut chain: Vec<ListChainItem<'_>> = Vec::new();
 
     for offset in 0.. {
@@ -94,8 +88,6 @@ fn render_list_chain(
         return None;
     }
 
-    // Build from the inside out: start with the innermost list,
-    // then wrap each outer list around it.
     let (innermost, innermost_ordered) = chain.last().copied().unwrap();
     let inner_tag = if innermost_ordered { "ol" } else { "ul" };
     let mut result = render_nested_list_with_tag(innermost, inner_tag, footnotes);
@@ -180,7 +172,6 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
         Block::FootnoteDef { .. } => String::new(), // Handled in Pass 1
 
         Block::Callout { kind, content } => {
-            // Handle the special "Quote" case
             if let CalloutKind::Quote = kind {
                 return format!(
                     "<blockquote>\n  <p>{}</p>\n</blockquote>",
@@ -188,9 +179,8 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
                 );
             }
 
-            // Handle all other Callouts (Note, Warn, etc.)
-            let class_name = kind.as_str(); // e.g., "warn"
-            let icon = kind.icon(); // e.g., "⚠ "
+            let class_name = kind.as_str();
+            let icon = kind.icon();
             let title = class_name.to_uppercase();
             let body = render_inlines(content, footnotes);
 
@@ -209,7 +199,6 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
         } => {
             let mut html = String::from("<div class=\"table-wrapper\">\n<table>\n");
 
-            // --- THEAD ---
             html.push_str("  <thead>\n    <tr>\n");
             for (i, header) in headers.iter().enumerate() {
                 let align = alignments
@@ -223,7 +212,6 @@ fn render_block(block: &Block, footnotes: &HashMap<String, String>) -> String {
             }
             html.push_str("    </tr>\n  </thead>\n");
 
-            // --- TBODY ---
             html.push_str("  <tbody>\n");
             for row in rows {
                 html.push_str("    <tr>\n");
@@ -276,7 +264,6 @@ fn render_nested_list_with_tag(
     for i in 0..n {
         let (indent, content) = &items[i];
 
-        // Close any lists at deeper indentation levels
         while let Some(&top) = indent_stack.last() {
             if *indent < top {
                 indent_stack.pop();
@@ -287,7 +274,6 @@ fn render_nested_list_with_tag(
             }
         }
 
-        // Open a new list level if we're deeper than the current one
         if indent_stack.is_empty() || *indent > *indent_stack.last().unwrap() {
             let is_nested = !indent_stack.is_empty();
             indent_stack.push(*indent);
@@ -298,18 +284,15 @@ fn render_nested_list_with_tag(
             html.push_str(&format!("<{}>\n", tag));
         }
 
-        // Render the list item content
         html.push_str("<li>");
         html.push_str(&render_inlines(content, footnotes));
 
-        // Close the <li> unless the next item is nested deeper inside it
         let has_children = i + 1 < n && items[i + 1].0 > *indent;
         if !has_children {
             html.push_str("</li>\n");
         }
     }
 
-    // Close any remaining open levels (innermost to outermost)
     while indent_stack.len() > 1 {
         indent_stack.pop();
         html.push_str(&format!("</{}>\n", tag));

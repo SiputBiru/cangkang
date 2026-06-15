@@ -49,7 +49,6 @@ pub enum Block {
     },
     List(Vec<(usize, Vec<Inline>)>),
     OrderedList(Vec<(usize, Vec<Inline>)>),
-    // HorizontalRule,
     Callout {
         kind: CalloutKind, // "note", "warn", etc.
         content: Vec<Inline>,
@@ -85,22 +84,7 @@ impl CalloutKind {
         }
     }
 
-    // Helper for icon logic
     pub fn icon(&self) -> &'static str {
-        // match self {
-        //     // (i) - Information Circle
-        //     Self::Note => "🛈 ",
-        //     // (!) - Check/Alert Circle or Lightbulb
-        //     Self::Tip => "𖡊 ",
-        //     // [!] - Message square alert or Exclamation Circle
-        //     Self::Important => "❕ ",
-        //     // /!\ - Triangle Warning
-        //     Self::Warn => "⚠ ",
-        //     // (x) - Octagon or Stop sign
-        //     Self::Caution => "✖ ",
-        //     // Default for Quote
-        //     Self::Quote => "",
-        // }
         ""
     }
 }
@@ -484,11 +468,9 @@ impl Parser {
                     if {
                         let trimmed = t.trim_start();
                         trimmed.starts_with(|c: char| c.is_ascii_digit())
-                            && trimmed
-                                .find(". ")
-                                .map_or(false, |idx| {
-                                    trimmed[..idx].chars().all(|c| c.is_ascii_digit())
-                                })
+                            && trimmed.find(". ").is_some_and(|idx| {
+                                trimmed[..idx].chars().all(|c| c.is_ascii_digit())
+                            })
                     } =>
                 {
                     self.parse_ordered_list()?
@@ -605,9 +587,7 @@ impl Parser {
                 if trimmed.starts_with(|c: char| c.is_ascii_digit())
                     && trimmed
                         .find(". ")
-                        .map_or(false, |idx| {
-                            trimmed[..idx].chars().all(|c| c.is_ascii_digit())
-                        })
+                        .is_some_and(|idx| trimmed[..idx].chars().all(|c| c.is_ascii_digit()))
                 {
                     is_numbered = true;
                 }
